@@ -1,0 +1,693 @@
+Start ShowMainWindow
+DLL Path: \\songnas\home\Drive\업무\자동화\통합자동화_v3_WebView\Lib\64bit\WebView2Loader.dll
+WebView2 Created Successfully
+OnGuiSize: 1200x800
+Refill Done
+Start ShowMainWindow
+DLL Path: \\songnas\home\Drive\업무\자동화\통합자동화_v3_WebView\Lib\64bit\WebView2Loader.dll
+WebView2 Created Successfully
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+OnGuiSize: 0x0
+Refill Done
+OnGuiSize: 1200x800
+Refill Done
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+OnGuiSize: 0x0
+Refill Done
+OnGuiSize: 1200x800
+Refill Done
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+OnGuiSize: 0x0
+Refill Done
+OnGuiSize: 1200x800
+Refill Done
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+OnGuiSize: 0x0
+Refill Done
+OnGuiSize: 1200x800
+Refill Done
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+OnGuiSize: 0x0
+Refill Done
+OnGuiSize: 1200x800
+Refill Done
+Start ShowMainWindow
+OnGuiSize: 1200x800
+AHK Received: {"command":"ready"}
+JSON Parsed Successfully
+Command: ready
+Sending ready response: {
+  "type":"initLogin",
+  "users":[]
+}
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+AHK Received: {"command":"ready"}
+JSON Parsed Successfully
+Command: ready
+Sending ready response: {
+  "type":"initLogin",
+  "users":[]
+}
+AHK Received: {"command":"close"}
+JSON Parsed Successfully
+Command: close
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+AHK Received: {"command":"ready"}
+JSON Parsed Successfully
+Command: ready
+Sending ready response: {
+  "type":"initLogin",
+  "users":[
+    {
+      "id":"115073",
+      "name":"송명진",
+      "pw2":"445073",
+      "sapPW":"pnva5073+",
+      "team":"D조",
+      "webPW":"pnva5073+"
+    }
+  ]
+}
+AHK Received: {"command":"tryLogin","id":"115073"}
+JSON Parsed Successfully
+Command: tryLogin
+Login attempt: 115073
+Sending login success: {
+  "profile":{
+    "id":"115073",
+    "name":"송명진",
+    "pw2":"445073",
+    "sapPW":"pnva5073+",
+    "team":"D조",
+    "webPW":"pnva5073+"
+  },
+  "type":"loginSuccess"
+}
+AHK Received: {"command":"deleteUser","id":"115073"}
+JSON Parsed Successfully
+Command: deleteUser
+Sending updated user list: {
+  "type":"initLogin",
+  "users":[]
+}
+AHK Received: {"command":"addUser","data":{"name":"송명진","id":"115073","team":"D조","webPW":"pnva5073+","pw2":"445073","sapPW":""}}
+JSON Parsed Successfully
+Command: addUser
+Add User: 115073
+Start ShowMainWindow
+OnGuiSize: 1200x800
+AHK Received: {"command":"ready"}
+JSON Parsed Successfully
+Command: ready
+Sending ready response: {
+  "type":"initLogin",
+  "users":[
+    {
+      "id":"115073",
+      "name":"송명진",
+      "pw2":"445073",
+      "sapPW":"",
+      "team":"D조",
+      "webPW":"pnva5073+"
+    }
+  ]
+}
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+AHK Received: {"command":"ready"}
+JSON Parsed Successfully
+Command: ready
+Sending ready response: {
+  "type":"initLogin",
+  "users":[
+    {
+      "id":"115073",
+      "name":"송명진",
+      "pw2":"445073",
+      "sapPW":"",
+      "team":"D조",
+      "webPW":"pnva5073+"
+    }
+  ]
+}
+AHK Received: {"command":"tryLogin","id":"115073"}
+JSON Parsed Successfully
+Command: tryLogin
+Login attempt: 115073
+Sending login success: {
+  "profile":{
+    "id":"115073",
+    "name":"송명진",
+    "pw2":"445073",
+    "sapPW":"",
+    "team":"D조",
+    "webPW":"pnva5073+"
+  },
+  "type":"loginSuccess"
+}
+AHK Received: {"command":"tryLogin","id":"115073"}
+JSON Parsed Successfully
+Command: tryLogin
+Login attempt: 115073
+Sending login success: {
+  "profile":{
+    "id":"115073",
+    "name":"송명진",
+    "pw2":"445073",
+    "sapPW":"",
+    "team":"D조",
+    "webPW":"pnva5073+"
+  },
+  "type":"loginSuccess"
+}
+AHK Received: {"command":"close"}
+JSON Parsed Successfully
+Command: close
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+AHK Received: {"command":"ready"}
+JSON Parsed Successfully
+Command: ready
+Sending ready response: {
+  "type":"initLogin",
+  "users":[
+    {
+      "id":"115073",
+      "name":"송명진",
+      "pw2":"445073",
+      "sapPW":"",
+      "team":"D조",
+      "webPW":"pnva5073+"
+    }
+  ]
+}
+Initial Fill Called
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+AHK Received: {"command":"close"}
+JSON Parsed Successfully
+Command: close
+Start ShowMainWindow
+OnGuiSize: 1200x800
+AHK Received: {"command":"ready"}
+JSON Parsed Successfully
+Command: ready
+Sending ready response: {
+  "type":"initLogin",
+  "users":[
+    {
+      "id":"115073",
+      "name":"송명진",
+      "pw2":"445073",
+      "sapPW":"",
+      "team":"D조",
+      "webPW":"pnva5073+"
+    }
+  ]
+}
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+AHK Received: {"command":"ready"}
+JSON Parsed Successfully
+Command: ready
+Sending ready response: {
+  "type":"initLogin",
+  "users":[
+    {
+      "id":"115073",
+      "name":"송명진",
+      "pw2":"445073",
+      "sapPW":"",
+      "team":"D조",
+      "webPW":"pnva5073+"
+    }
+  ]
+}
+Initial Fill Called
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+AHK Received: {"command":"dragWindow"}
+JSON Parse Error: (32) 다른 프로세스가 파일을 사용 중이기 때문에 프로세스가 액세스 할 수 없습니다.
+AHK Received: {"command":"tryLogin","id":"115073"}
+JSON Parsed Successfully
+Command: tryLogin
+Login attempt: 115073
+Sending login success: {
+  "profile":{
+    "id":"115073",
+    "name":"송명진",
+    "pw2":"445073",
+    "sapPW":"",
+    "team":"D조",
+    "webPW":"pnva5073+"
+  },
+  "type":"loginSuccess"
+}
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+AHK Received: {"command":"ready"}
+JSON Parsed Successfully
+Command: ready
+Sending ready response: {
+  "type":"initLogin",
+  "users":[
+    {
+      "id":"115073",
+      "name":"송명진",
+      "pw2":"445073",
+      "sapPW":"",
+      "team":"D조",
+      "webPW":"pnva5073+"
+    }
+  ]
+}
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+AHK Received: {"command":"ready"}
+JSON Parsed Successfully
+Command: ready
+Sending ready response: {
+  "type":"initLogin",
+  "users":[
+    {
+      "id":"115073",
+      "name":"송명진",
+      "pw2":"445073",
+      "sapPW":"",
+      "team":"D조",
+      "webPW":"pnva5073+"
+    }
+  ]
+}
+Initial Fill Called
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+Dragging Window
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+AHK Received: {"command":"ready"}
+JSON Parsed Successfully
+Command: ready
+Sending ready response: {
+  "type":"initLogin",
+  "users":[
+    {
+      "id":"115073",
+      "name":"송명진",
+      "pw2":"445073",
+      "sapPW":"",
+      "team":"D조",
+      "webPW":"pnva5073+"
+    }
+  ]
+}
+Initial Fill Called
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"close"}
+JSON Parsed Successfully
+Command: close
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+AHK Received: {"command":"ready"}
+JSON Parsed Successfully
+Command: ready
+Sending ready response: {
+  "type":"initLogin",
+  "users":[
+    {
+      "id":"115073",
+      "name":"송명진",
+      "pw2":"445073",
+      "sapPW":"",
+      "team":"D조",
+      "webPW":"pnva5073+"
+    }
+  ]
+}
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+AHK Received: {"command":"ready"}
+JSON Parsed Successfully
+Command: ready
+Sending ready response: {
+  "type":"initLogin",
+  "users":[
+    {
+      "id":"115073",
+      "name":"송명진",
+      "pw2":"445073",
+      "sapPW":"",
+      "team":"D조",
+      "webPW":"pnva5073+"
+    }
+  ]
+}
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parse Error: (32) 다른 프로세스가 파일을 사용 중이기 때문에 프로세스가 액세스 할 수 없습니다.
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"minimize"}
+JSON Parsed Successfully
+Command: minimize
+OnGuiSize: 0x0
+Refill Done
+OnGuiSize: 1200x800
+Refill Done
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Command: dragWindow
+AHK Received: {"command":"dragWindow"}
+JSON Parsed Successfully
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Gui Shown
+Initial Fill Called
+OnGuiSize: 0x0
+Refill Done
+OnGuiSize: 1200x800
+Refill Done
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+OnGuiSize: 0x0
+Refill Done
+OnGuiSize: 1200x800
+Refill Done
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+OnGuiSize: 0x0
+Refill Done
+OnGuiSize: 1200x800
+Refill Done
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called
+Start ShowMainWindow
+OnGuiSize: 1200x800
+Refill Done
+Gui Shown
+Initial Fill Called

@@ -1,0 +1,842 @@
+/* Global Styles */
+@font-face {
+    font-family: 'Pretendard';
+    src: local('Pretendard'), local('Malgun Gothic');
+    /* Fallback */
+}
+
+:root {
+    --primary-color: #4CAF50;
+    /* AdGuard Green */
+    --hover-color: #e8f5e9;
+    --bg-color: #ffffff;
+    --sidebar-bg: #f7f7f7;
+    --text-color: #333333;
+    --border-color: #e0e0e0;
+    --title-bar-height: 32px;
+}
+
+@media (prefers-color-scheme: dark) {
+    /* Future dark mode support */
+}
+
+* {
+    box-sizing: border-box;
+    cursor: default;
+    /* Default cursor for app-like feel */
+    user-select: none;
+    /* Disable text selection */
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Pretendard', 'Segoe UI', sans-serif;
+    color: var(--text-color);
+    background-color: var(--bg-color);
+    overflow: hidden;
+    /* No body scroll */
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Add User Form (Separate View) */
+#add-user-view {
+    display: none;
+    /* Hidden by default */
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    width: 450px;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+#add-user-view.active {
+    display: flex;
+}
+
+.form-row {
+    display: flex;
+    gap: 10px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+input,
+textarea,
+select {
+    cursor: text;
+    user-select: text;
+    font-family: inherit;
+}
+
+/* Title Bar */
+#title-bar {
+    height: var(--title-bar-height);
+    background: var(--bg-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    /* Parent is NOT draggable to avoid covering controls */
+}
+
+#title-drag-area {
+    flex-grow: 1;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding-left: 15px;
+    font-size: 14px;
+    font-weight: 500;
+    /* -webkit-app-region: drag; */
+    /* Disabled: Using Manual JS Drag */
+    cursor: default;
+}
+
+#window-controls {
+    display: flex;
+    -webkit-app-region: no-drag;
+    z-index: 9999;
+    /* Ensure strictly on top */
+}
+
+/* =========================================
+   Settings View (Full Page Transition)
+   ========================================= */
+#settings-view {
+    position: absolute;
+    top: var(--title-bar-height);
+    /* Below title bar */
+    left: 0;
+    width: 100%;
+    height: calc(100% - var(--title-bar-height));
+    background-color: var(--bg-color);
+    z-index: 100;
+    /* Higher than #app-container */
+    display: none;
+    flex-direction: column;
+}
+
+/* ... existing settings components ... */
+.settings-header {
+    height: 50px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    background: #f8f9fa;
+    flex-shrink: 0;
+    /* Prevent shrinking */
+}
+
+.back-btn {
+    background: none;
+    border: none;
+    cursor: default;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    color: var(--text-primary);
+}
+
+.back-btn:hover {
+    background-color: #ddd;
+}
+
+.back-btn svg {
+    margin-right: 5px;
+}
+
+.settings-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+.settings-body {
+    flex-grow: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+.settings-sidebar {
+    width: 200px;
+    border-right: 1px solid var(--border-color);
+    background: #fafafa;
+    padding: 10px 0;
+    flex-shrink: 0;
+}
+
+.settings-content-area {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: scroll;
+    /* Always show scrollbar to prevent layout shift */
+}
+
+/* Settings Tabs */
+.settings-sidebar .tab-item {
+    padding: 12px 20px;
+    cursor: default;
+    border-left: 3px solid transparent;
+    transition: background 0.2s;
+}
+
+.settings-sidebar .tab-item:hover {
+    background-color: #eee;
+}
+
+.settings-sidebar .tab-item.active {
+    background-color: #e6f7ff;
+    border-left-color: var(--primary-color);
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+.settings-tab-pane {
+    display: none;
+}
+
+.settings-tab-pane.active {
+    display: block;
+    animation: fadeIn 0.3s;
+}
+
+.settings-tab-pane h2 {
+    margin-top: 5px;
+    margin-bottom: 20px;
+    font-size: 18px;
+}
+
+/* Table Utils for Settings */
+.toolbar {
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.tab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+/* Table Improvements */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+th,
+td {
+    padding: 2px 4px;
+    /* Very compact padding */
+    border: 1px solid #ccc;
+    /* Visible borders */
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    height: 32px;
+    /* Fixed height for rows */
+}
+
+th {
+    background-color: #f0f0f0;
+    font-weight: 600;
+    text-align: center;
+    font-size: 13px;
+    /* Enhanced font size */
+    padding: 8px 4px;
+}
+
+/* Higher specificity to override generic input styles */
+#settings-view td input,
+#settings-view td select {
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 0;
+    padding: 4px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    box-shadow: none;
+}
+
+#settings-view td input:focus,
+#settings-view td select:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+    background: #fff;
+    border-radius: 0;
+    border: none;
+}
+
+td input[type="checkbox"] {
+    cursor: pointer;
+    width: 14px;
+    /* Reduced to ~75% */
+    height: 14px;
+    margin: 0 auto;
+    display: block;
+    accent-color: var(--primary-color);
+}
+
+/* Remove focus outline for checkbox */
+td input[type="checkbox"]:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Keycap Style */
+kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    font-family: monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    color: #333;
+    background-color: #f7f7f7;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 0 0 1px white inset;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 0 0 1px white inset;
+    margin: 0 1px;
+    /* Tighter spacing */
+}
+
+/* Back Icon Button (Login) */
+.icon-back-btn {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: none;
+    border: none;
+    padding: 8px;
+    border-radius: 50%;
+    cursor: pointer;
+    color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-back-btn:hover {
+    background-color: #f0f0f0;
+    color: #333;
+}
+
+.center {
+    text-align: center;
+}
+
+/* ... existing Validation Styles ... */
+
+.add-row-btn {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    background-color: #f0f0f0;
+    border: 1px dashed #ccc;
+    color: #666;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    border-radius: 4px;
+}
+
+.add-row-btn:hover {
+    background-color: #e8f5e9;
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+/* Validation Styles */
+.password-box {
+    position: relative;
+}
+
+/* Remove old Error Text */
+.error-text {
+    display: none !important;
+}
+
+/* Validation Success Indicator */
+.validation-success::after {
+    content: "✔";
+    color: #52c41a;
+    font-weight: bold;
+    margin-left: 8px;
+}
+
+input.inputs-match {
+    border-color: #52c41a !important;
+    background-color: #f6ffed !important;
+}
+
+input.inputs-error {
+    border-color: #ff4d4f !important;
+    background-color: #fff1f0 !important;
+}
+
+.control-btn {
+    width: 45px;
+    height: var(--title-bar-height);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: default;
+    transition: background 0.2s;
+    -webkit-app-region: no-drag;
+}
+
+/* Login Container */
+#login-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--bg-secondary);
+    /* Ensure it takes full height below title bar */
+    height: calc(100vh - 30px);
+}
+
+.login-card {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.login-card h2 {
+    text-align: center;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+#user-list-container {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    height: 200px;
+    /* Fixed height */
+    overflow-y: auto;
+}
+
+.user-item {
+    padding: 10px 15px;
+    cursor: default;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.2s;
+}
+
+.user-item:last-child {
+    border-bottom: none;
+}
+
+.user-item:hover {
+    background-color: var(--hover-color);
+}
+
+.user-item.selected {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.control-btn:hover {
+    background-color: #eee;
+}
+
+.control-btn.close-btn:hover {
+    background-color: #e81123;
+    color: white;
+}
+
+.control-btn svg {
+    width: 10px;
+    height: 10px;
+}
+
+/* App Container */
+#app-container {
+    display: flex;
+    flex: 1;
+    height: calc(100vh - var(--title-bar-height));
+}
+
+/* Sidebar */
+#sidebar {
+    width: 200px;
+    /* Matched to settings sidebar */
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid var(--border-color);
+    padding: 10px 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.nav-top,
+.nav-bottom {
+    display: flex;
+    flex-direction: column;
+}
+
+.menu-item.settings-btn {
+    border-top: 1px solid var(--border-color);
+    margin-top: 10px;
+    padding-top: 15px;
+}
+
+.menu-label {
+    padding: 15px 20px 5px;
+    font-size: 12px;
+    color: #888;
+    font-weight: 600;
+}
+
+.menu-item {
+    padding: 15px 20px;
+    /* Increased vertical padding */
+    display: flex;
+    align-items: center;
+    cursor: default;
+    transition: background 0.2s, color 0.2s;
+    font-size: 14px;
+}
+
+.menu-item:hover {
+    background-color: #eaeaea;
+}
+
+.menu-item.active {
+    background-color: #fff;
+    color: var(--primary-color);
+    border-left: 4px solid var(--primary-color);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.menu-item .icon {
+    margin-right: 10px;
+    font-size: 16px;
+}
+
+/* Content Area */
+#content {
+    flex: 1;
+    padding: 30px 40px;
+    overflow-y: auto;
+    background-color: var(--bg-color);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #bbb;
+}
+
+/* Sections */
+.view-section {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.view-section.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+h1 {
+    font-size: 24px;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.description {
+    color: #666;
+    margin-bottom: 30px;
+}
+
+/* Form Elements */
+.form-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: block;
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+input[type="text"],
+input[type="password"],
+select,
+input[type="number"] {
+    width: 100%;
+    max-width: 400px;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    outline: none;
+    transition: border 0.2s;
+}
+
+select {
+    cursor: default;
+    /* Arrow cursor for dropdowns */
+}
+
+input:focus,
+select:focus {
+    border-color: var(--primary-color);
+}
+
+input[readonly] {
+    background-color: #f9f9f9;
+    color: #888;
+}
+
+/* Buttons */
+button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: none;
+    font-size: 14px;
+    transition: 0.2s;
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+    background-color: #e0e0e0 !important;
+    color: #999 !important;
+    border-color: #ccc !important;
+}
+
+.save-btn,
+.primary-btn {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.save-btn:hover,
+.primary-btn:hover {
+    background-color: #43a047;
+}
+
+.secondary-btn {
+    background-color: #eee;
+    color: #333;
+}
+
+.secondary-btn:hover {
+    background-color: #ddd;
+}
+
+/* Cards */
+.card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
+}
+
+/* Data Tables (Excel-like) */
+.data-grid-container {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.data-table th,
+.data-table td {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+}
+
+.row {
+    display: flex;
+    gap: 15px;
+}
+
+.col {
+    flex: 1;
+}
+
+.inline-field {
+    display: flex;
+    align-items: center;
+}
+
+.inline-field label {
+    min-width: 70px;
+    /* Fixed width for alignment */
+    margin-bottom: 0;
+    margin-right: 15px;
+    white-space: nowrap;
+}
+
+.inline-field input,
+.inline-field select {
+    flex: 1;
+}
+
+.data-table tr:hover {
+    background-color: #f5fcf5;
+    /* Subtle green tint */
+}
+
+.data-table td.editable {
+    cursor: text;
+}
+
+.data-table td.editable:hover {
+    background-color: #fff;
+    box-shadow: inset 0 0 0 1px var(--primary-color);
+}
+
+.add-row-btn {
+    width: 100%;
+    background: white;
+    color: var(--primary-color);
+    text-align: center;
+
+    .user-item:last-child {
+        border-bottom: none;
+    }
+
+    .user-item:hover {
+        background-color: #f9f9f9;
+    }
+
+    .user-item.selected {
+        background-color: #e8f5e9;
+        font-weight: bold;
+        border-left: 4px solid var(--primary-color);
+    }
+
+    .login-actions {
+        margin-bottom: 20px;
+    }
+
+    .login-actions button {
+        width: 100%;
+        height: 40px;
+        font-size: 16px;
+        font-weight: bold;
+    }
+
+    .login-footer {
+        border-top: 1px solid #eee;
+        padding-top: 15px;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .login-footer button {
+        font-size: 12px;
+        padding: 5px 10px;
+    }
+
+    .danger {
+        color: #d32f2f;
+    }
+
+    .danger:hover {
+        background-color: #ffebee;
+    }
+
+    /* Overlay Styles */
+    .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 200;
+    }
+
+    .overlay.hidden {
+        display: none;
+    }
+
+    .overlay-card {
+        background: white;
+        padding: 25px;
+        border-radius: 8px;
+        width: 320px;
+    }
+}
+
+/* Table Delete Button Styles */
+.small-btn.danger {
+    background-color: transparent;
+    color: #999;
+    border: 1px solid transparent;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-weight: bold;
+}
+
+.small-btn.danger:hover {
+    background-color: #ffebee;
+    color: #d32f2f;
+    border-color: #ffcdd2;
+}

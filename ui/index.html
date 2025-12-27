@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>통합자동화</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Custom Title Bar -->
+    <div id="title-bar">
+        <div id="title-drag-area">
+            <span id="app-title">통합자동화 v3.0</span>
+        </div>
+        <div id="window-controls">
+            <div class="control-btn" id="btn-min" onclick="window.minimizeWindow()">
+                <svg viewBox="0 0 10 1">
+                    <path d="M0 0h10v1H0z" />
+                </svg>
+            </div>
+            <div class="control-btn close-btn" id="btn-close" onclick="window.closeWindow()">
+                <svg viewBox="0 0 10 10">
+                    <path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1.2" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Container -->
+    <div id="login-container">
+
+        <!-- View 1: User Selection -->
+        <div id="login-view" class="login-card">
+            <h2>사용자 선택</h2>
+            <div id="user-list-container">
+                <!-- Javascript populated -->
+            </div>
+            <div class="login-footer">
+                <button id="btn-next" class="primary-btn" onclick="moveToPasswordView()"
+                    style="width:100%; margin-bottom:10px;" disabled>다음</button>
+                <div style="display:flex; gap:10px; width:100%;">
+                    <button class="secondary-btn small" onclick="switchView('add')" style="flex:1;">+ 새 사용자</button>
+                    <button id="btn-delete" class="secondary-btn small danger" onclick="deleteUser()" style="flex:1;"
+                        disabled>삭제</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- View 1.5: Password Entry (Modal-like) -->
+        <div id="password-view" class="login-card" style="display: none; position: relative;">
+            <button class="icon-back-btn" onclick="backToUserList()" title="뒤로가기">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" fill="currentColor" />
+                </svg>
+            </button>
+
+            <h2 id="pwd-user-name" style="margin-top: 20px;">User Name</h2>
+            <p id="pwd-user-id" style="text-align:center; color:#666; margin-top:-10px;">(User ID)</p>
+
+            <div class="login-input-area" style="width: 100%; margin: 20px 0;">
+                <input type="password" id="login-pw2" placeholder="2차 비밀번호를 입력하세요" class="full-width-input"
+                    onkeydown="handleLoginKey(event)">
+            </div>
+
+            <div class="login-actions" style="justify-content: center; display: flex;">
+                <button class="primary-btn" onclick="tryLogin()" style="width: 100%;">로그인</button>
+            </div>
+        </div>
+
+        <!-- View 2: Add User (Registration) -->
+        <div id="add-user-view" style="display: none;">
+            <h3>새 사용자 등록</h3>
+            <div class="form-row">
+                <div class="form-group"><label>이름 *</label><input type="text" id="new-name"></div>
+                <div class="form-group"><label>사번 *</label><input type="text" id="new-id" maxlength="7"></div>
+            </div>
+
+            <div class="form-group"><label>근무조</label>
+                <select id="new-team" style="width: 100%;">
+                    <option>A조</option>
+                    <option>B조</option>
+                    <option>C조</option>
+                    <option>D조</option>
+                    <option>일근</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group"><label>통합 PW *</label><input type="password" id="new-webpw"></div>
+                <div class="form-group"><label>확인 *</label><input type="password" id="new-webpw2"></div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group"><label>2차 PW *</label><input type="password" id="new-pw2"></div>
+                <div class="form-group"><label>확인 *</label><input type="password" id="new-pw2-confirm"></div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group"><label>SAP PW</label><input type="password" id="new-sappw"></div>
+                <div class="form-group"><label>확인</label><input type="password" id="new-sappw2"></div>
+            </div>
+
+            <div class="actions" style="margin-top: 10px;">
+                <button class="primary-btn" onclick="submitNewUser()">등록</button>
+                <button class="secondary-btn" onclick="switchView('login')">취소</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Main Container (Hidden Initially) -->
+    <div id="app-container" style="display: none;">
+        <!-- Sidebar -->
+        <nav id="sidebar">
+            <div class="nav-top">
+                <div class="menu-item active" data-target="view-daily-log" onclick="switchMainTab('view-daily-log')">
+                    <span class="icon">📅</span>
+                    <span class="label">일지생성</span>
+                </div>
+                <div class="menu-item" data-target="view-erp-check" onclick="switchMainTab('view-erp-check')">
+                    <span class="icon">📋</span>
+                    <span class="label">ERP일일점검</span>
+                </div>
+                <div class="menu-item" data-target="view-track-access" onclick="switchMainTab('view-track-access')">
+                    <span class="icon">🚧</span>
+                    <span class="label">선로출입관리</span>
+                </div>
+                <div class="menu-item" data-target="view-vehicle-log" onclick="switchMainTab('view-vehicle-log')">
+                    <span class="icon">🚗</span>
+                    <span class="label">차량운행일지</span>
+                </div>
+            </div>
+            <div class="nav-bottom">
+                <div class="menu-item settings-btn" onclick="openSettings()">
+                    <span class="icon">⚙️</span>
+                    <span class="label">설정</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Content Area -->
+        <main id="content">
+            <!-- Daily Log View -->
+            <div id="view-daily-log" class="view-section active">
+                <h1>일지생성</h1>
+                <p class="description">오늘의 업무 일지를 생성하고 관리합니다.</p>
+                <div class="card">
+                    <button class="primary-btn" onclick="runTask('DailyLog')">일지 생성 시작</button>
+                </div>
+            </div>
+
+            <!-- ERP Check View -->
+            <div id="view-erp-check" class="view-section">
+                <h1>ERP일일점검</h1>
+                <p class="description">ERP 점검 업무를 수행합니다.</p>
+                <div class="card">
+                    <!-- Placeholder -->
+                    <p>준비 중입니다.</p>
+                </div>
+            </div>
+
+            <!-- Track Access View -->
+            <div id="view-track-access" class="view-section">
+                <h1>선로출입관리</h1>
+                <p class="description">선로 출입 관련 일지를 생성합니다.</p>
+                <div class="card">
+                    <button class="primary-btn" onclick="runTask('TrackAccess')">일지 생성 시작</button>
+                </div>
+            </div>
+
+            <!-- Vehicle Log View -->
+            <div id="view-vehicle-log" class="view-section">
+                <h1>차량운행일지</h1>
+                <p class="description">차량 운행 기록을 관리합니다.</p>
+                <div class="card">
+                    <!-- Placeholder -->
+                    <p>준비 중입니다.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Settings Overlay View (Hidden Initially) -->
+    <div id="settings-view" style="display: none;">
+        <div class="settings-header">
+            <button class="back-btn" onclick="closeSettings()">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" fill="currentColor" />
+                </svg>
+                <span class="settings-title">설정</span>
+            </button>
+        </div>
+
+        <div class="settings-body">
+            <!-- Settings Tabs Sidebar -->
+            <div class="settings-sidebar">
+                <div class="tab-item active" onclick="switchSettingsTab('tab-user')">유저정보</div>
+                <div class="tab-item" onclick="switchSettingsTab('tab-worker')">작업자</div>
+                <div class="tab-item" onclick="switchSettingsTab('tab-location')">작업장소</div>
+                <div class="tab-item" onclick="switchSettingsTab('tab-hotkey')">단축키</div>
+                <div class="tab-item" onclick="switchSettingsTab('tab-preset')">프리셋</div>
+            </div>
+
+            <div class="settings-content-area">
+
+                <!-- Tab 1: User Info -->
+                <div id="tab-user" class="settings-tab-pane active">
+                    <h2>내 정보</h2>
+                    <div class="form-group inline-field"><label>이름</label><input type="text" id="user-name" readonly
+                            disabled></div>
+                    <div class="form-group inline-field"><label>사번</label><input type="text" id="user-id" readonly
+                            disabled></div>
+                    <div class="form-group inline-field"><label>분소</label><input type="text" id="user-dept"></div>
+                    <div class="form-group inline-field"><label>근무조</label>
+                        <select id="user-team">
+                            <option>A조</option>
+                            <option>B조</option>
+                            <option>C조</option>
+                            <option>D조</option>
+                            <option>일근</option>
+                        </select>
+                    </div>
+                    <hr>
+                    <h3>비밀번호 관리</h3>
+                    <div class="form-group inline-field"><label>통합 PW</label><input type="password" id="user-webpw">
+                    </div>
+                    <div class="form-group inline-field"><label>2차 PW</label><input type="password" id="user-pw2"></div>
+                    <div class="form-group inline-field"><label>SAP PW</label><input type="password" id="user-sappw">
+                    </div>
+                </div>
+
+                <!-- Tab 2: Workers -->
+                <div id="tab-worker" class="settings-tab-pane">
+                    <div class="tab-header">
+                        <h2>분소원</h2>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="worker-table">
+                            <thead>
+                                <tr>
+                                    <th width="15%">이름</th>
+                                    <th width="15%">사번</th>
+                                    <th width="15%">근무조</th>
+                                    <th width="20%">전화번호</th>
+                                    <th width="10%">분소장</th>
+                                    <th width="15%">운전원</th>
+                                    <th width="10%">삭제</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <button class="add-row-btn" onclick="addWorkerRow()">+ 추가</button>
+                </div>
+
+                <!-- Tab 3: Locations -->
+                <div id="tab-location" class="settings-tab-pane">
+                    <div class="tab-header">
+                        <h2>ERP점검</h2>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="location-table">
+                            <thead>
+                                <tr>
+                                    <th width="40%">점검장소</th>
+                                    <th width="20%">오더번호</th>
+                                    <th width="30%">구분</th>
+                                    <th width="10%">삭제</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <button class="add-row-btn" onclick="addLocationRow()">+ 추가</button>
+                </div>
+
+                <!-- Tab 4: Hotkeys -->
+                <div id="tab-hotkey" class="settings-tab-pane">
+                    <h2>단축키 설정</h2>
+                    <div class="table-wrapper">
+                        <table id="hotkey-table">
+                            <thead>
+                                <tr>
+                                    <th width="30%">기능</th>
+                                    <th width="25%">단축키</th>
+                                    <th width="35%">설명</th>
+                                    <th width="10%" class="center">활성</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab 5: Presets -->
+                <div id="tab-preset" class="settings-tab-pane">
+                    <h2>선로출입 프리셋</h2>
+                    <div class="form-group">
+                        <label>프리셋 선택</label>
+                        <select id="preset-selector" onchange="loadPresetDetail()"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>프리셋 이름</label>
+                        <input type="text" id="ps-name">
+                    </div>
+                    <div class="form-group">
+                        <label>작업 내용</label>
+                        <textarea id="ps-work" rows="5"></textarea>
+                    </div>
+                    <div class="actions center"><button class="primary-btn" onclick="saveSettings()">저장</button></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+
+</html>
