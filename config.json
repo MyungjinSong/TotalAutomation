@@ -1,215 +1,53 @@
 ﻿{
-  "appSettings": {
-    "lastUser": "115073",
-    "version": "v3.0.0",
-    "repo": "MyungjinSong/TotalAutomation"
+  "appSettings":{
+    "lastUser":"115073"
   },
-  "users": {
-    "115073": {
-      "colleagues": [
-        {
-          "driverRole": "정",
-          "id": "",
-          "isManager": 0,
-          "name": "",
-          "phone": "010-6683-8369",
-          "team": "A조"
-        },
-        {
-          "driverRole": "-",
-          "id": "",
-          "isManager": 0,
-          "name": "",
-          "phone": "",
-          "team": "A조"
-        },
-        {
-          "driverRole": "-",
-          "id": "",
-          "isManager": 0,
-          "name": "",
-          "phone": "",
-          "team": "A조"
-        },
-        {
-          "driverRole": "-",
-          "id": "",
-          "isManager": 1,
-          "name": "",
-          "phone": "",
-          "team": "A조"
-        },
-        {
-          "driverRole": "-",
-          "id": "",
-          "isManager": 0,
-          "name": "",
-          "phone": "",
-          "team": "A조"
-        },
-        {
-          "driverRole": "-",
-          "id": "",
-          "isManager": 0,
-          "name": "",
-          "phone": "",
-          "team": "A조"
-        },
-        {
-          "driverRole": "-",
-          "id": "",
-          "isManager": 0,
-          "name": "",
-          "phone": "",
-          "team": "A조"
-        },
-        {
-          "driverRole": "-",
-          "id": "",
-          "isManager": 0,
-          "name": "",
-          "phone": "",
-          "team": "A조"
-        },
-        {
-          "driverRole": "-",
-          "id": "",
-          "isManager": 0,
-          "name": "",
-          "phone": "",
-          "team": "A조"
-        },
-        {
-          "driverRole": "-",
-          "id": "",
-          "isManager": 0,
-          "name": "",
-          "phone": "",
-          "team": "A조"
-        },
-        {
-          "driverRole": "-",
-          "id": "",
-          "isManager": 0,
-          "name": "",
-          "phone": "",
-          "team": "A조"
-        },
-        {
-          "driverRole": "-",
-          "id": "",
-          "isManager": 0,
-          "name": "",
-          "phone": "",
-          "team": "A조"
-        },
-        {
-          "driverRole": "-",
-          "id": "",
-          "isManager": 0,
-          "name": "",
-          "phone": "",
-          "team": "A조"
-        }
+  "users":{
+    "115073":{
+      "colleagues":[
+        {"driverRole":"정","id":"","isManager":0,"name":"","phone":"010-6683-8369","team":"A조"},
+        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
+        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
+        {"driverRole":"-","id":"","isManager":1,"name":"","phone":"","team":"A조"},
+        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
+        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
+        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
+        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
+        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
+        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
+        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
+        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
+        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"}
       ],
-      "hotkeys": [
-        {
-          "action": "AutoLogin",
-          "desc": "자동 로그인",
-          "enabled": 1,
-          "key": "#z"
-        },
-        {
-          "action": "AutoLoginOpenLog",
-          "desc": "자동 로그인 + 업무일지 실행",
-          "enabled": 1,
-          "key": "#!z"
-        },
-        {
-          "action": "ConvertExcel",
-          "desc": "일반업무 -> 엑셀 변환",
-          "enabled": 1,
-          "key": "#!a"
-        },
-        {
-          "action": "CopyExcel",
-          "desc": "엑셀 데이터 복사",
-          "enabled": 1,
-          "key": "#!c"
-        },
-        {
-          "action": "PasteExcel",
-          "desc": "일반업무에 붙여넣기",
-          "enabled": 1,
-          "key": "#!v"
-        }
+      "hotkeys":[
+        {"action":"AutoLogin","desc":"자동 로그인","enabled":1,"key":"#z"},
+        {"action":"AutoLoginOpenLog","desc":"자동 로그인 + 업무일지 실행","enabled":1,"key":"#!z"},
+        {"action":"ConvertExcel","desc":"일반업무 -> 엑셀 변환","enabled":1,"key":"#!a"},
+        {"action":"CopyExcel","desc":"엑셀 데이터 복사","enabled":1,"key":"#!c"},
+        {"action":"PasteExcel","desc":"일반업무에 붙여넣기","enabled":1,"key":"#!v"}
       ],
-      "locations": [
-        {
-          "name": "",
-          "order": "",
-          "type": "기타업무"
-        },
-        {
-          "name": "",
-          "order": "",
-          "type": "기타업무"
-        },
-        {
-          "name": "",
-          "order": "",
-          "type": "기타업무"
-        },
-        {
-          "name": "",
-          "order": "",
-          "type": "기타업무"
-        },
-        {
-          "name": "",
-          "order": "",
-          "type": "기타업무"
-        },
-        {
-          "name": "",
-          "order": "",
-          "type": "기타업무"
-        },
-        {
-          "name": "",
-          "order": "",
-          "type": "기타업무"
-        },
-        {
-          "name": "",
-          "order": "",
-          "type": "기타업무"
-        },
-        {
-          "name": "",
-          "order": "",
-          "type": "기타업무"
-        },
-        {
-          "name": "",
-          "order": "",
-          "type": "기타업무"
-        },
-        {
-          "name": "",
-          "order": "",
-          "type": "기타업무"
-        }
+      "locations":[
+        {"name":"","order":"","type":"기타업무"},
+        {"name":"","order":"","type":"기타업무"},
+        {"name":"","order":"","type":"기타업무"},
+        {"name":"","order":"","type":"기타업무"},
+        {"name":"","order":"","type":"기타업무"},
+        {"name":"","order":"","type":"기타업무"},
+        {"name":"","order":"","type":"기타업무"},
+        {"name":"","order":"","type":"기타업무"},
+        {"name":"","order":"","type":"기타업무"},
+        {"name":"","order":"","type":"기타업무"},
+        {"name":"","order":"","type":"기타업무"}
       ],
-      "presets": {},
-      "profile": {
-        "department": "호포전기분소",
-        "id": "115073",
-        "name": "송명진",
-        "pw2": "445073",
-        "sapPW": "pnva5073+",
-        "team": "D조",
-        "webPW": "pnva5073+"
+      "presets":{},
+      "profile":{
+        "department":"호포전기분소",
+        "id":"115073",
+        "name":"송명진",
+        "pw2":"445073",
+        "sapPW":"pnva5073+",
+        "team":"D조",
+        "webPW":"pnva5073+"
       }
     }
   }

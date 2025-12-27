@@ -201,6 +201,7 @@
                 <div class="tab-item" onclick="switchSettingsTab('tab-location')">작업장소</div>
                 <div class="tab-item" onclick="switchSettingsTab('tab-hotkey')">단축키</div>
                 <div class="tab-item" onclick="switchSettingsTab('tab-preset')">프리셋</div>
+                <div class="tab-item" onclick="switchSettingsTab('tab-updates')">업데이트 내역</div>
             </div>
 
             <div class="settings-content-area">
@@ -310,6 +311,17 @@
                         <textarea id="ps-work" rows="5"></textarea>
                     </div>
                     <div class="actions center"><button class="primary-btn" onclick="saveSettings()">저장</button></div>
+                </div>
+
+                <!-- Tab 6: Update History -->
+                <div id="tab-updates" class="settings-tab-pane">
+                    <div class="tab-header">
+                        <h2>업데이트 내역</h2>
+                        <button class="secondary-btn small" onclick="requestReleaseNotes()">새로고침</button>
+                    </div>
+                    <div id="release-list" class="release-list-container">
+                        <div class="loading-spinner">로딩 중...</div>
+                    </div>
                 </div>
             </div>
         </div>

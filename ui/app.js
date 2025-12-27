@@ -69,10 +69,15 @@ function handleAhkMessage(msg) {
             break;
         case 'loadConfig':
             appConfig = msg.data;
-            // DEBUG: Trace config loading
-            // showNativeMsgBox("Config Loaded: Keys=" + Object.keys(appConfig.users || {}).join(","), "Debug");
             if (document.getElementById('settings-view').style.display !== 'none') {
                 loadSettingsToUI();
+            }
+            break;
+        case 'releaseNotes':
+            if (msg.error) {
+                renderReleaseNotes(null, msg.error);
+            } else {
+                renderReleaseNotes(msg.data);
             }
             break;
     }
@@ -138,6 +143,57 @@ function switchSettingsTab(tabId) {
     document.querySelectorAll('.settings-tab-pane').forEach(el => el.classList.remove('active'));
     const targetPane = document.getElementById(tabId);
     if (targetPane) targetPane.classList.add('active');
+
+    if (tabId === 'tab-updates') {
+        requestReleaseNotes();
+    }
+}
+
+function requestReleaseNotes() {
+    const container = document.getElementById('release-list');
+    if (container) container.innerHTML = '<div class="loading-spinner">불러오는 중...</div>';
+    sendMessageToAHK({ command: 'getReleaseNotes' });
+}
+
+function renderReleaseNotes(data, error = null) {
+    const container = document.getElementById('release-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (error) {
+        container.innerHTML = `<div style="color:red; text-align:center;">오류: ${error}</div>`;
+        return;
+    }
+
+    if (!data || data.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:20px;">업데이트 내역이 없습니다.</div>';
+        return;
+    }
+
+    data.forEach(release => {
+        const date = new Date(release.published_at).toLocaleDateString('ko-KR');
+        const bodyText = release.body || "내용 없음";
+
+        const item = document.createElement('div');
+        item.className = 'release-item';
+        item.innerHTML = `
+            <div class="release-header">
+                <span class="release-ver">${release.tag_name}</span>
+                <span class="release-date">${date}</span>
+            </div>
+            <div class="release-body">${escapeHtml(bodyText)}</div>
+        `;
+        container.appendChild(item);
+    });
+}
+
+function escapeHtml(text) {
+    return text.replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 // ... (Rest of Login Logic remains same) ...

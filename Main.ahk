@@ -3,6 +3,14 @@
 #Include "설정관리.ahk"
 #Include "Lib\JSON.ahk"
 #Include "Lib\WebView2.ahk"
+
+; ==============================================================================
+; Compiler Directives
+; ==============================================================================
+;@Ahk2Exe-SetVersion 2.0.0.0
+;@Ahk2Exe-SetProductVersion v3.0
+;@Ahk2Exe-SetDescription 통합자동화
+; ==============================================================================
 ; ==============================================================================
 ; Initialization
 ; ==============================================================================
@@ -15,9 +23,19 @@ if !ConfigManager.Load() {
     ExitApp
 }
 
-; Update Check
-CheckForGithubUpdate()
-SetTimer(CheckForGithubUpdate, 3600000) ; Check every 1 hour (optional)
+; Update Check (Blocking Wait)
+skipUpdate := false
+for arg in A_Args {
+    if (arg = "/skipupdate")
+        skipUpdate := true
+}
+
+if (!skipUpdate) {
+    updaterExe := A_ScriptDir "\Updater.exe"
+    if FileExist(updaterExe) {
+        try RunWait(updaterExe)
+    }
+}
 
 ; 2. Main Window
 ShowMainWindow()
@@ -32,7 +50,14 @@ ShowMainWindow() {
     ; Create Borderless Window with Resize style (WS_THICKFRAME = +Resize, 0x00040000)
     ; This enables the standard Windows 10/11 drop shadow even without a caption.
     ; We manually prevent resizing via OnMessage if needed, but for now we allow it as per modern app behavior.
-    MainGui := Gui("-Caption +Resize", "통합자동화 " AppVersion)
+    ; Arguments Check
+    titleSuffix := ""
+    for arg in A_Args {
+        if (arg = "/offline")
+            titleSuffix := " - 오프라인 모드"
+    }
+
+    MainGui := Gui("-Caption +Resize", "통합자동화 " AppVersion titleSuffix)
     MainGui.SetFont("S10", "Malgun Gothic")
     MainGui.BackColor := "FFFFFF"
 
@@ -225,40 +250,27 @@ OnWebMessage(sender, args) {
         DllCall("User32\ReleaseCapture")
         PostMessage(0xA1, 2, 0, , "ahk_id " MainGui.Hwnd)
     }
-}
+    else if (command == "getReleaseNotes") {
+        repo := "MyungjinSong/TotalAutomation"
 
-CheckForGithubUpdate() {
-    repo := "MyungjinSong/TotalAutomation" ; Hardcoded or from config
-    if ConfigManager.Config.Has("appSettings") && ConfigManager.Config["appSettings"].Has("repo")
-        repo := ConfigManager.Config["appSettings"]["repo"]
+        url := "https://api.github.com/repos/" repo "/releases?per_page=5"
 
-    url := "https://api.github.com/repos/" repo "/releases/latest"
+        try {
+            whr := ComObject("WinHttp.WinHttpRequest.5.1")
+            whr.Open("GET", url, true)
+            whr.Send()
+            whr.WaitForResponse()
 
-    try {
-        whr := ComObject("WinHttp.WinHttpRequest.5.1")
-        whr.Open("GET", url, true)
-        whr.Send()
-        whr.WaitForResponse()
-
-        if (whr.Status == 200) {
-            resp := JSON.parse(whr.ResponseText)
-            latestVer := resp["tag_name"]
-
-            if (latestVer != AppVersion) {
-                if (MsgBox("새 버전이 있습니다: " latestVer "`n현재 버전: " AppVersion "`n`n업데이트하시겠습니까?", "업데이트 확인", "YesNo") ==
-                "Yes") {
-                    updaterPath := A_ScriptDir "\Updater.ahk"
-                    if FileExist(updaterPath) {
-                        Run(updaterPath)
-                        ExitApp
-                    } else {
-                        MsgBox("Updater.ahk 파일을 찾을 수 없습니다.`n" updaterPath)
-                    }
-                }
+            if (whr.Status == 200) {
+                releases := JSON.parse(whr.ResponseText)
+                payload := Map("type", "releaseNotes", "data", releases)
+                wv.PostWebMessageAsJson(JSON.stringify(payload))
+            } else {
+                wv.PostWebMessageAsJson(JSON.stringify(Map("type", "releaseNotes", "error", "GitHub API Error: " whr.Status
+                )))
             }
+        } catch as e {
+            wv.PostWebMessageAsJson(JSON.stringify(Map("type", "releaseNotes", "error", e.Message)))
         }
-    } catch as e {
-        ; Silent failure or log to debug
-        ; FileAppend("Update Check Error: " e.Message "`n", "debug.log")
     }
 }
