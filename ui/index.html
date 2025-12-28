@@ -74,7 +74,7 @@
             <h3>새 사용자 등록</h3>
             <div class="form-row">
                 <div class="form-group"><label>이름 *</label><input type="text" id="new-name"></div>
-                <div class="form-group"><label>사번 *</label><input type="text" id="new-id" maxlength="7"></div>
+                <div class="form-group"><label>사번 *</label><input type="text" id="new-id" maxlength="6"></div>
             </div>
 
             <div class="form-group"><label>근무조</label>
@@ -93,8 +93,9 @@
             </div>
 
             <div class="form-row">
-                <div class="form-group"><label>2차 PW *</label><input type="password" id="new-pw2"></div>
-                <div class="form-group"><label>확인 *</label><input type="password" id="new-pw2-confirm"></div>
+                <div class="form-group"><label>2차 PW *</label><input type="password" id="new-pw2" maxlength="6"></div>
+                <div class="form-group"><label>확인 *</label><input type="password" id="new-pw2-confirm" maxlength="6">
+                </div>
             </div>
 
             <div class="form-row">
@@ -227,9 +228,13 @@
                     <h3>비밀번호 관리</h3>
                     <div class="form-group inline-field"><label>통합 PW</label><input type="password" id="user-webpw">
                     </div>
-                    <div class="form-group inline-field"><label>2차 PW</label><input type="password" id="user-pw2"></div>
+                    <div class="form-group inline-field"><label>2차 PW</label><input type="password" id="user-pw2"
+                            maxlength="6"></div>
                     <div class="form-group inline-field"><label>SAP PW</label><input type="password" id="user-sappw">
                     </div>
+
+                    <hr>
+
                 </div>
 
                 <!-- Tab 2: Workers -->

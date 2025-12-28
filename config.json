@@ -5,15 +5,11 @@
   "users":{
     "115073":{
       "colleagues":[
-        {"driverRole":"정","id":"","isManager":0,"name":"","phone":"010-6683-8369","team":"A조"},
-        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
-        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
-        {"driverRole":"-","id":"","isManager":1,"name":"","phone":"","team":"A조"},
-        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
-        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
-        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
-        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
-        {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
+        {"driverRole":"-","id":"","isManager":1,"name":"이윤수","phone":"","team":"일근"},
+        {"driverRole":"부","id":"","isManager":0,"name":"서형원","phone":"","team":"D조"},
+        {"driverRole":"정","id":"115073","isManager":0,"name":"송명진","phone":"010-6683-8369","team":"D조"},
+        {"driverRole":"-","id":"","isManager":0,"name":"구교민","phone":"","team":"D조"},
+        {"driverRole":"-","id":"","isManager":0,"name":"임지현","phone":"","team":"D조"},
         {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
         {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
         {"driverRole":"-","id":"","isManager":0,"name":"","phone":"","team":"A조"},
@@ -21,13 +17,14 @@
       ],
       "hotkeys":[
         {"action":"AutoLogin","desc":"자동 로그인","enabled":1,"key":"#z"},
-        {"action":"AutoLoginOpenLog","desc":"자동 로그인 + 업무일지 실행","enabled":1,"key":"#!z"},
+        {"action":"AutoLoginOpenLog","desc":"자동 로그인 + 업무일지 실행","enabled":0,"key":"#!z"},
         {"action":"ConvertExcel","desc":"일반업무 -> 엑셀 변환","enabled":1,"key":"#!a"},
         {"action":"CopyExcel","desc":"엑셀 데이터 복사","enabled":1,"key":"#!c"},
-        {"action":"PasteExcel","desc":"일반업무에 붙여넣기","enabled":1,"key":"#!v"}
+        {"action":"PasteExcel","desc":"일반업무에 붙여넣기","enabled":1,"key":"#!v"},
+        {"action":"ForceExit","desc":"강제 종료","enabled":1,"key":"^Esc"}
       ],
       "locations":[
-        {"name":"","order":"","type":"기타업무"},
+        {"name":"","order":"12345678","type":"기타업무"},
         {"name":"","order":"","type":"기타업무"},
         {"name":"","order":"","type":"기타업무"},
         {"name":"","order":"","type":"기타업무"},

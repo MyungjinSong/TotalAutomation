@@ -29,7 +29,42 @@ document.addEventListener('DOMContentLoaded', () => {
     setupPasswordValidation('new-webpw', 'new-webpw2');
     setupPasswordValidation('new-pw2', 'new-pw2-confirm');
     setupPasswordValidation('new-sappw', 'new-sappw2');
+
+    // --- UX Improvements ---
+    // 1. Numeric Input Restrictions
+    const numericInputs = ['login-pw2', 'new-id', 'new-pw2', 'new-pw2-confirm', 'user-pw2'];
+    numericInputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/[^0-9]/g, '');
+
+                // 2. Auto-Login Trigger (Only for login-pw2)
+                if (id === 'login-pw2') {
+                    checkAutoLogin(e.target.value);
+                }
+            });
+        }
+    });
+
+    // ERP Check Order Number Restriction (Dynamic elements handled elsewhere or if static)
+    // Assuming adding a global delegation or checking specific view load in future if needed.
+    // For now, let's look for specific ID if it exists? 
+    // The user mentioned "ERP Check tab order number", but that might be dynamically generated.
+    // I will add a helper for it.
 });
+
+function checkAutoLogin(inputPw) {
+    if (!selectedUserId) return;
+
+    // Find selected user data
+    // loginUsers contains profile objects directly
+    const user = loginUsers.find(u => u.id === selectedUserId);
+    if (user && user.pw2 === inputPw) {
+        // Match found! Login immediately.
+        tryLogin();
+    }
+}
 
 // --- AHK Bridge ---
 if (window.chrome && window.chrome.webview) {
@@ -406,11 +441,16 @@ function autoSaveSettings() {
     saveTimeout = setTimeout(saveSettings, 500); // 500ms debounce
 }
 
+
+
 function loadSettingsToUI() {
     const uid = selectedUserId;
-    if (!uid || !appConfig.users || !appConfig.users[uid]) return;
+    if (!uid || !appConfig.users) return;
 
+    // Revert: users is an Object (Map) keyed by ID
     const user = appConfig.users[uid];
+    if (!user) return;
+
     const profile = user.profile || {};
 
     setVal('user-name', profile.name);
@@ -449,81 +489,90 @@ function loadSettingsToUI() {
 
     // Presets
     renderPresetList(user.presets || {});
+
 }
 
 function saveSettings() {
-    const uid = selectedUserId;
-    if (!uid || !appConfig.users) return;
+    try {
+        const uid = selectedUserId;
+        if (!uid || !appConfig.users) return;
 
-    const user = appConfig.users[uid];
-    if (!user.profile) user.profile = {};
+        // Revert: users is an Object (Map) keyed by ID
+        const user = appConfig.users[uid];
+        if (!user) return; // Should not happen if logged in
 
-    user.profile.department = getVal('user-dept');
-    user.profile.team = getVal('user-team');
-    user.profile.webPW = getVal('user-webpw');
-    user.profile.pw2 = getVal('user-pw2');
-    user.profile.sapPW = getVal('user-sappw');
+        if (!user.profile) user.profile = {};
 
-    // Gather Workers with Logic
-    const newWorkers = [];
-    const rows = document.querySelectorAll('#worker-table tbody tr');
+        user.profile.department = getVal('user-dept');
+        user.profile.team = getVal('user-team');
+        user.profile.webPW = getVal('user-webpw');
+        user.profile.pw2 = getVal('user-pw2');
+        user.profile.sapPW = getVal('user-sappw');
 
-    // Constraint Checking Maps
-    const managers = [];
-    const drivers = { 'A조': { '정': 0, '부': 0 }, 'B조': { '정': 0, '부': 0 }, 'C조': { '정': 0, '부': 0 }, 'D조': { '정': 0, '부': 0 }, '일근': { '정': 0, '부': 0 } };
 
-    rows.forEach(row => {
-        const inputs = row.querySelectorAll('input, select');
-        const team = inputs[2].value;
-        const isManager = inputs[4].checked; // Checkbox
-        const driverRole = inputs[5].value; // Select
+        // Gather Workers with Logic
+        const newWorkers = [];
+        const rows = document.querySelectorAll('#worker-table tbody tr');
 
-        if (isManager) managers.push(row);
-        if (driverRole !== '-' && drivers[team]) {
-            drivers[team][driverRole]++;
-        }
+        // Constraint Checking Maps
+        const managers = [];
+        const drivers = { 'A조': { '정': 0, '부': 0 }, 'B조': { '정': 0, '부': 0 }, 'C조': { '정': 0, '부': 0 }, 'D조': { '정': 0, '부': 0 }, '일근': { '정': 0, '부': 0 } };
 
-        newWorkers.push({
-            name: inputs[0].value,
-            id: inputs[1].value,
-            team: team,
-            phone: inputs[3].value,
-            isManager: isManager ? 1 : 0,
-            driverRole: driverRole
+        rows.forEach(row => {
+            const inputs = row.querySelectorAll('input, select');
+            const team = inputs[2].value;
+            const isManager = inputs[4].checked; // Checkbox
+            const driverRole = inputs[5].value; // Select
+
+            if (isManager) managers.push(row);
+            if (driverRole !== '-' && drivers[team]) {
+                drivers[team][driverRole]++;
+            }
+
+            newWorkers.push({
+                name: inputs[0].value,
+                id: inputs[1].value,
+                team: team,
+                phone: inputs[3].value,
+                isManager: isManager ? 1 : 0,
+                driverRole: driverRole
+            });
         });
-    });
 
-    // Enforce Manager Constraint (Last one checked wins, handled by UI event usually, but here we validate state)
-    // Actually, UI event is better for UX. But let's assume the state is what it is.
-    // If multiple managers are checked, we might warn or just save.
-    // User requested: "Only 1 manager possible". Let's enforce in UI changes mostly.
+        // Enforce Manager Constraint (Last one checked wins, handled by UI event usually, but here we validate state)
+        // Actually, UI event is better for UX. But let's assume the state is what it is.
+        // If multiple managers are checked, we might warn or just save.
+        // User requested: "Only 1 manager possible". Let's enforce in UI changes mostly.
 
-    user.colleagues = newWorkers;
+        user.colleagues = newWorkers;
 
-    // Gather Locations
-    const newLocs = [];
-    document.querySelectorAll('#location-table tbody tr').forEach(row => {
-        const inputs = row.querySelectorAll('input');
-        newLocs.push({
-            name: inputs[0].value,
-            order: inputs[1].value,
-            type: inputs[2].value
+        // Gather Locations
+        const newLocs = [];
+        document.querySelectorAll('#location-table tbody tr').forEach(row => {
+            const inputs = row.querySelectorAll('input, select');
+            newLocs.push({
+                name: inputs[0].value,
+                order: inputs[1].value,
+                type: inputs[2].value
+            });
         });
-    });
-    user.locations = newLocs;
+        user.locations = newLocs;
 
-    // Gather Hotkeys
-    const newHotkeys = [];
-    document.querySelectorAll('#hotkey-table tbody tr').forEach(row => {
-        const action = row.dataset.action;
-        const key = row.dataset.key;
-        const desc = row.dataset.desc;
-        const enabled = row.querySelector('input[type="checkbox"]').checked;
-        newHotkeys.push({ action, key, desc, enabled });
-    });
-    user.hotkeys = newHotkeys;
+        // Gather Hotkeys
+        const newHotkeys = [];
+        document.querySelectorAll('#hotkey-table tbody tr').forEach(row => {
+            const action = row.dataset.action;
+            const key = row.dataset.key;
+            const desc = row.dataset.desc;
+            const enabled = row.querySelector('input[type="checkbox"]').checked;
+            newHotkeys.push({ action, key, desc, enabled });
+        });
+        user.hotkeys = newHotkeys;
 
-    sendMessageToAHK({ command: 'saveConfig', data: appConfig });
+        sendMessageToAHK({ command: 'saveConfig', data: appConfig });
+    } catch (e) {
+        showNativeMsgBox("설정 저장 중 오류: " + e.message);
+    }
 }
 
 // --- Worker Logic ---
@@ -617,8 +666,8 @@ function addLocationRowToTable(tbody, data) {
     let typeOpts = types.map(t => `<option value="${t}" ${data.type === t ? 'selected' : ''}>${t}</option>`).join('');
 
     tr.innerHTML = `
-        <td><input type="text" value="${data.name || ''}" placeholder="장소명" oninput="autoSaveSettings()"></td>
-        <td><input type="text" value="${data.order || ''}" placeholder="순서" oninput="autoSaveSettings()"></td>
+        <td><input type="text" value="${data.name || ''}" placeholder="점검명" oninput="autoSaveSettings()"></td>
+        <td><input type="text" value="${data.order || ''}" placeholder="오더번호" maxlength="8" oninput="this.value=this.value.replace(/[^0-9]/g,''); autoSaveSettings()"></td>
         <td><select onchange="autoSaveSettings()">${typeOpts}</select></td>
         <td class="center"><button class="small-btn danger" onclick="this.closest('tr').remove(); autoSaveSettings()">X</button></td>
     `;
@@ -631,7 +680,8 @@ const defaultHotkeys = [
     { action: "AutoLoginOpenLog", key: "#!z", desc: "자동 로그인 + 업무일지 실행" },
     { action: "ConvertExcel", key: "#!a", desc: "일반업무 -> 엑셀 변환" },
     { action: "CopyExcel", key: "#!c", desc: "엑셀 데이터 복사" },
-    { action: "PasteExcel", key: "#!v", desc: "일반업무에 붙여넣기" }
+    { action: "PasteExcel", key: "#!v", desc: "일반업무에 붙여넣기" },
+    { action: "ForceExit", key: "^Esc", desc: "강제 종료" }
 ];
 
 const hotkeyTranslations = {
@@ -639,7 +689,8 @@ const hotkeyTranslations = {
     "AutoLoginOpenLog": "자동 로그인 + 일지",
     "ConvertExcel": "엑셀 변환",
     "CopyExcel": "엑셀 복사",
-    "PasteExcel": "붙여넣기"
+    "PasteExcel": "붙여넣기",
+    "ForceExit": "강제 종료"
 };
 
 function renderHotkeyTable(savedHotkeys) {
