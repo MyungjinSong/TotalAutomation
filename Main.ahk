@@ -3,6 +3,10 @@
 #Include "설정관리.ahk"
 #Include "Lib\JSON.ahk"
 #Include "Lib\WebView2.ahk"
+#Include "Lib\CryptAES.ahk"
+#Include "Lib\UIA.ahk"
+#Include "Lib\UIA_Browser.ahk"
+#Include "단축기능.ahk"
 
 ; ==============================================================================
 ; Compiler Directives
@@ -14,7 +18,7 @@
 ; ==============================================================================
 ; Initialization
 ; ==============================================================================
-global AppVersion := "v3.0.0"
+global AppVersion := "v3.0.1"
 global wvc := ""
 global wv := ""
 global MainGui := ""
@@ -347,35 +351,35 @@ SetupHotkeys() {
                     ; If these are global hotkeys (Win+Z etc), they need to be registered here too!
                     else if (action == "AutoLogin") {
                         if (isEnabled) {
-                            Hotkey hk["key"], AutoLoginAction, "On"
+                            Hotkey hk["key"], ShortcutActions.AutoLoginAction, "On"
                         } else {
                             try Hotkey hk["key"], "Off"
                         }
                     }
                     else if (action == "AutoLoginOpenLog") {
                         if (isEnabled) {
-                            Hotkey hk["key"], AutoLoginOpenLogAction, "On"
+                            Hotkey hk["key"], ShortcutActions.AutoLoginOpenLogAction, "On"
                         } else {
                             try Hotkey hk["key"], "Off"
                         }
                     }
                     else if (action == "ConvertExcel") {
                         if (isEnabled) {
-                            Hotkey hk["key"], ConvertExcelAction, "On"
+                            Hotkey hk["key"], ShortcutActions.ConvertExcelAction, "On"
                         } else {
                             try Hotkey hk["key"], "Off"
                         }
                     }
                     else if (action == "CopyExcel") {
                         if (isEnabled) {
-                            Hotkey hk["key"], CopyExcelAction, "On"
+                            Hotkey hk["key"], ShortcutActions.CopyExcelAction, "On"
                         } else {
                             try Hotkey hk["key"], "Off"
                         }
                     }
                     else if (action == "PasteExcel") {
                         if (isEnabled) {
-                            Hotkey hk["key"], PasteExcelAction, "On"
+                            Hotkey hk["key"], ShortcutActions.PasteExcelAction, "On"
                         } else {
                             try Hotkey hk["key"], "Off"
                         }
@@ -394,26 +398,4 @@ SetupHotkeys() {
 ; to prevent "Target label does not exist" if I were using labels.
 ; But with lambdas or functions, I need definitions.
 
-AutoLoginAction(*) {
-    ; Send message to JS to trigger auto login?
-    ; Or is this purely AHK side?
-    ; Given the context, let's just leave empty for now or show msgbox if user tries.
-    ; But wait, the user said "AutoLogin" hotkey is existing feature?
-    ; I better safely check if I need to implement them or not.
-    ; For "ForceExit", I implemented it.
-    ; For others, I will leave them as placeholders to avoid breaking if user tries to use them.
-    MsgBox("단축키 동작: 자동 로그인 (구현 예정)")
-}
-
-AutoLoginOpenLogAction(*) {
-    MsgBox("단축키 동작: 자동 로그인 + 일지 (구현 예정)")
-}
-ConvertExcelAction(*) {
-    MsgBox("단축키 동작: 엑셀 변환 (구현 예정)")
-}
-CopyExcelAction(*) {
-    MsgBox("단축키 동작: 엑셀 복사 (구현 예정)")
-}
-PasteExcelAction(*) {
-    MsgBox("단축키 동작: 붙여넣기 (구현 예정)")
-}
+; --- Hotkey Actions are now handled by ShortcutActions class in 단축기능.ahk ---

@@ -4,6 +4,7 @@
 let appConfig = {};
 let selectedUserId = null;
 let loginUsers = []; // Store user data for login validation
+let isDailyLogInitialized = false; // Flag for persistence
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -107,6 +108,11 @@ function handleAhkMessage(msg) {
             if (document.getElementById('settings-view').style.display !== 'none') {
                 loadSettingsToUI();
             }
+            // Initialize Daily Log IF logged in and not yet done (Fix for Race Condition)
+            if (selectedUserId && !isDailyLogInitialized) {
+                renderDailyLogUI();
+                isDailyLogInitialized = true;
+            }
             break;
         case 'releaseNotes':
             if (msg.error) {
@@ -129,6 +135,15 @@ function switchMainTab(viewId) {
 
     const navItem = document.querySelector(`.nav-top .menu-item[data-target="${viewId}"]`);
     if (navItem) navItem.classList.add('active');
+
+    if (viewId === 'view-erp-check') {
+        renderERPCheck();
+    } else if (viewId === 'view-daily-log') {
+        // Only render if NOT initialized yet (Persistence Fix)
+        if (!isDailyLogInitialized) {
+            renderDailyLogUI();
+        }
+    }
 }
 
 function switchView(viewName) {
@@ -382,6 +397,13 @@ function handleLoginSuccess(profile) {
 
     // Request full config
     sendMessageToAHK({ command: 'requestConfig' });
+
+    // Auto-init Daily Log View (Work Type Auto-selection)
+    // Wait for Config Load (Race Condition Fix)
+    // renderDailyLogUI(); // Removed here, moved to loadConfig
+    isDailyLogInitialized = false; // Add this line to ensure reset
+
+    switchMainTab('view-daily-log');
 }
 
 function deleteUser() {
@@ -662,7 +684,7 @@ function addLocationRowToTable(tbody, data) {
     const tr = document.createElement('tr');
 
     // Type Options
-    const types = ['변전소', '전기실', '기타업무'];
+    const types = ['변전소', '전기실(그룹1)', '전기실(그룹2)', '전기실(그룹3)', '기타업무'];
     let typeOpts = types.map(t => `<option value="${t}" ${data.type === t ? 'selected' : ''}>${t}</option>`).join('');
 
     tr.innerHTML = `
@@ -772,26 +794,6 @@ function showNativeMsgBox(text, title = "알림") {
     sendMessageToAHK({ command: 'msgbox', text: text, title: title });
 }
 
-
-// Global Exports
-window.switchMainTab = switchMainTab;
-window.runTask = function (task) { showNativeMsgBox(task + ' 시작'); };
-window.openSettings = openSettings;
-window.closeSettings = closeSettings;
-window.switchSettingsTab = switchSettingsTab;
-window.tryLogin = tryLogin;
-window.deleteUser = deleteUser;
-window.switchView = switchView;
-window.submitNewUser = submitNewUser;
-window.saveSettings = saveSettings;
-window.addWorkerRow = addWorkerRow;
-window.addLocationRow = addLocationRow;
-window.minimizeWindow = function () { sendMessageToAHK({ command: 'minimize' }); };
-window.closeWindow = function () { sendMessageToAHK({ command: 'close' }); };
-window.autoSaveSettings = autoSaveSettings; // Export for direct calls if needed
-window.handleManagerCheck = handleManagerCheck;
-window.handleDriverChange = handleDriverChange;
-
 function formatPhone(input) {
     let value = input.value.replace(/[^0-9]/g, '');
     let formatted = '';
@@ -814,3 +816,382 @@ function formatPhone(input) {
     input.value = formatted;
 }
 
+// --- ERP Check Logic ---
+let selectedERPLocation = null;
+
+function renderERPCheck() {
+    // 1. Get current user locations
+    const uid = selectedUserId;
+    if (!uid || !appConfig.users || !appConfig.users[uid]) return;
+
+    const locations = appConfig.users[uid].locations || [];
+
+    // 2. Clear containers
+    const gridSub = document.getElementById('grid-substation');
+    const gridEtc = document.getElementById('grid-etc');
+    const elG1 = document.getElementById('elec-g1');
+    const elG2 = document.getElementById('elec-g2');
+    const elG3 = document.getElementById('elec-g3');
+
+    if (gridSub) gridSub.innerHTML = '';
+    if (gridEtc) gridEtc.innerHTML = '';
+    if (elG1) elG1.innerHTML = '';
+    if (elG2) elG2.innerHTML = '';
+    if (elG3) elG3.innerHTML = '';
+
+    selectedERPLocation = null; // Reset selection
+
+    // 3. Process Items
+    locations.forEach(loc => {
+        const btn = document.createElement('div');
+        btn.className = 'erp-btn';
+        btn.innerText = loc.name;
+        btn.onclick = () => selectERPLoc(btn, loc.name);
+
+        if (loc.type === '변전소') {
+            gridSub.appendChild(btn);
+        } else if (loc.type === '기타업무') {
+            gridEtc.appendChild(btn);
+        } else if (loc.type.startsWith('전기실')) {
+            // Group Matching
+            // Normalized check for specific groups
+            if (loc.type.includes('그룹1')) {
+                elG1.appendChild(btn);
+            } else if (loc.type.includes('그룹2')) {
+                elG2.appendChild(btn);
+            } else if (loc.type.includes('그룹3')) {
+                elG3.appendChild(btn);
+            } else {
+                // Fallback for undefined groups, put in G3 or ETC?
+                // Putting in ETC for safety if unknown
+                gridEtc.appendChild(btn);
+            }
+        }
+    });
+}
+
+function selectERPLoc(btn, locName) {
+    // Deselect all
+    document.querySelectorAll('.erp-btn').forEach(el => el.classList.remove('selected'));
+
+    // Select this
+    btn.classList.add('selected');
+    selectedERPLocation = locName;
+}
+
+function toggleERPMode() {
+    const btn = document.getElementById('btn-erp-mode');
+    if (btn.innerText.includes('일괄모드')) {
+        btn.innerText = '< 개별모드';
+        // TODO: Switch to Batch UI (Future)
+        showNativeMsgBox("일괄모드 준비 중입니다.");
+    } else {
+        btn.innerText = '일괄모드 >';
+        // Switch back to Individual UI
+    }
+}
+
+function runERPTask() {
+    const btn = document.getElementById('btn-erp-mode');
+    if (btn.innerText.includes('개별모드')) {
+        // Batch Mode Run
+        showNativeMsgBox("일괄모드 실행 (준비중)");
+        return;
+    }
+
+    if (!selectedERPLocation) {
+        showNativeMsgBox("점검 장소를 선택해주세요.");
+        return;
+    }
+
+    // Send to AHK
+    sendMessageToAHK({ command: 'runTask', task: 'ERPCheck', location: selectedERPLocation });
+
+    // UI Feedback is handled by AHK or we can add it here if needed
+    // showNativeMsgBox(selectedERPLocation + " 점검 시작 요청");
+}
+
+
+
+// --- Daily Log Logic ---
+function renderDailyLogUI() {
+    const uid = selectedUserId;
+    if (!uid || !appConfig.users || !appConfig.users[uid]) return;
+
+    // 1. Determine Work Type (Day/Night) based on Time
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=Sun, 6=Sat
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const timeVal = hours * 100 + minutes;
+
+    // Logic: Day if Mon-Fri (1-5) AND 08:30 <= Time < 17:30
+    let isDay = false;
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        if (timeVal >= 830 && timeVal < 1730) {
+            isDay = true;
+        }
+    }
+
+    // Set Radio Button
+    const radioDay = document.querySelector('input[name="work-type"][value="day"]');
+    const radioNight = document.querySelector('input[name="work-type"][value="night"]');
+    if (isDay) {
+        radioDay.checked = true;
+    } else {
+        radioNight.checked = true;
+    }
+
+    // Apply Automation Options based on Work Type
+    handleWorkTypeChange(false); // Validates and sets checkboxes
+
+    // 2. Render Worker List
+    renderDailyWorkerList(appConfig.users[uid]);
+
+    isDailyLogInitialized = true;
+}
+
+function handleWorkTypeChange(skipRenderWorkers = true) {
+    const isDay = document.querySelector('input[name="work-type"][value="day"]').checked;
+
+    // Checkboxes
+    const chkMakeLog = document.getElementById('chk-make-log');
+    const chkGeneral = document.getElementById('chk-general');
+    const chkSafe = document.getElementById('chk-safe-manage');
+    const chkDriving = document.getElementById('chk-driving');
+    const chkDrink = document.getElementById('chk-drink');
+    const chkCal = document.getElementById('chk-drink-cal');
+
+    // Always Checked/Enabled
+    chkGeneral.checked = true;
+    chkSafe.checked = true;
+
+    if (isDay) {
+        // Day Mode
+        chkMakeLog.checked = true;
+        chkMakeLog.disabled = false;
+
+        chkDriving.checked = false;
+        chkDriving.disabled = true; // Disabled for Day
+
+        chkDrink.disabled = false; // Enabled for Day
+
+        // Calibration check state depends on Drink check
+        if (chkDrink.checked) {
+            chkCal.disabled = false;
+        } else {
+            chkCal.disabled = true;
+        }
+
+    } else {
+        // Night Mode
+        chkMakeLog.checked = false;
+        chkMakeLog.disabled = true; // Disabled for Night
+
+        chkDriving.checked = true;
+        chkDriving.disabled = false;
+
+        chkDrink.disabled = true;
+        chkDrink.checked = false;
+        chkCal.disabled = true;
+        chkCal.checked = false;
+    }
+
+    enableDriverSelects(!isDay);
+
+    // Toggle Driver Column Visibility
+    const drvHeader = document.getElementById('col-header-drive');
+    if (drvHeader) {
+        if (isDay) {
+            drvHeader.classList.add('hidden-col');
+        } else {
+            drvHeader.classList.remove('hidden-col');
+        }
+    }
+
+    // Toggle Cells
+    document.querySelectorAll('.w-drive-cell').forEach(cell => {
+        if (isDay) {
+            cell.classList.add('hidden-col');
+        } else {
+            cell.classList.remove('hidden-col');
+        }
+    });
+
+}
+
+function toggleDrinkCalibration() {
+    const chkDrink = document.getElementById('chk-drink');
+    const chkCal = document.getElementById('chk-drink-cal');
+    if (chkDrink.checked) {
+        chkCal.disabled = false;
+    } else {
+        chkCal.disabled = true;
+        chkCal.checked = false;
+    }
+}
+
+function renderDailyWorkerList(user) {
+    const container = document.getElementById('daily-worker-list');
+    container.innerHTML = '';
+    // const countSpan = document.getElementById('worker-count'); // Removed
+
+    const colleagues = user.colleagues || [];
+    const myTeam = (user.profile && user.profile.team) ? user.profile.team : '';
+
+    // Filter: Same Team OR '일근'
+    const filteredWorkers = colleagues.filter(w => {
+        if (w.team === '일근') return true;
+        if (myTeam && w.team === myTeam) return true;
+        return false;
+    });
+
+    // Sort: Manager First (isManager=1), then ID (asc)
+    const sortedWorkers = [...filteredWorkers].sort((a, b) => {
+        if (a.isManager !== b.isManager) return b.isManager - a.isManager; // 1 before 0
+        return a.id.localeCompare(b.id);
+    });
+
+    sortedWorkers.forEach((worker, index) => {
+        const row = document.createElement('div');
+        row.className = 'worker-row';
+        row.dataset.id = worker.id;
+        row.dataset.name = worker.name;
+
+        // Default Checked logic: Select All by default
+        const isChecked = true;
+
+        // Dynamic Driver Column
+        const isDay = document.querySelector('input[name="work-type"][value="day"]').checked;
+        const driveClass = isDay ? 'wl-drive hidden-col w-drive-cell' : 'wl-drive w-drive-cell';
+
+        row.innerHTML = `
+            <label class="wl-name checkbox-label" style="margin: 0;">
+                <input type="checkbox" ${isChecked ? 'checked' : ''} class="w-chk">
+                <span>${worker.name}</span>
+            </label>
+            <div class="wl-note"><input type="text" placeholder="사유" class="w-note"></div>
+            <div class="${driveClass}">
+                <select class="w-drive" disabled>
+                    <option value="">-</option>
+                    <option value="정" ${worker.driverRole === '정' ? 'selected' : ''}>정</option>
+                    <option value="부" ${worker.driverRole === '부' ? 'selected' : ''}>부</option>
+                    <option value="검사자" ${worker.driverRole === '검사자' ? 'selected' : ''}>검사자</option>
+                </select>
+            </div>
+        `;
+        container.appendChild(row);
+
+        // Add Listeners
+        const chk = row.querySelector('.w-chk');
+        const note = row.querySelector('.w-note');
+        const drv = row.querySelector('.w-drive');
+
+        // Logic: If Note has text (vacation), Uncheck.
+        note.addEventListener('input', () => {
+            if (note.value.trim() !== '' && note.value !== '일근') {
+                chk.checked = false;
+            } else {
+                // Optional: Re-check if cleared?
+                // chk.checked = true; 
+            }
+            updateWorkerStats();
+        });
+
+        chk.addEventListener('change', () => {
+            updateWorkerStats();
+            if (!chk.checked) drv.value = '';
+        });
+    });
+
+    // countSpan.innerText = `총 ${filteredWorkers.length}명`; // Removed
+
+    // Initial Driver Enable Check
+    const isDay = document.querySelector('input[name="work-type"][value="day"]').checked;
+    enableDriverSelects(!isDay);
+}
+
+function enableDriverSelects(enable) {
+    document.querySelectorAll('.w-drive').forEach(el => {
+        el.disabled = !enable;
+    });
+}
+
+function toggleAllWorkers(mainChk) {
+    const chks = document.querySelectorAll('#daily-worker-list .w-chk');
+    chks.forEach(c => c.checked = mainChk.checked);
+    updateWorkerStats();
+}
+
+function updateWorkerStats() {
+    // Placeholder for stats logic
+}
+
+function startDailyLog() {
+    const uid = selectedUserId;
+    if (!uid) return;
+
+    const workType = document.querySelector('input[name="work-type"]:checked').value; // 'day' or 'night'
+
+    // Gather Options
+    const options = {
+        makeLog: document.getElementById('chk-make-log').checked,
+        general: document.getElementById('chk-general').checked,
+        safe: document.getElementById('chk-safe-manage').checked,
+        driving: document.getElementById('chk-driving').checked,
+        drink: document.getElementById('chk-drink').checked
+    };
+
+    // Gather Workers
+    const workers = [];
+    document.querySelectorAll('.worker-row').forEach(row => {
+        const chk = row.querySelector('.w-chk');
+        const note = row.querySelector('.w-note');
+        const drv = row.querySelector('.w-drive');
+
+        workers.push({
+            name: row.dataset.name,
+            id: row.dataset.id,
+            attend: chk.checked,
+            reason: note.value,
+            driverRole: drv.value
+        });
+    });
+
+    const payload = {
+        command: 'runTask',
+        task: 'DailyLog',
+        data: {
+            workType,
+            options,
+            workers
+        }
+    };
+    sendMessageToAHK(payload);
+}
+
+
+// Global Exports
+window.switchMainTab = switchMainTab;
+window.runTask = function (task) { showNativeMsgBox(task + ' 시작'); };
+window.openSettings = openSettings;
+window.closeSettings = closeSettings;
+window.switchSettingsTab = switchSettingsTab;
+window.tryLogin = tryLogin;
+window.deleteUser = deleteUser;
+window.switchView = switchView;
+window.submitNewUser = submitNewUser;
+window.saveSettings = saveSettings;
+window.addWorkerRow = addWorkerRow;
+window.addLocationRow = addLocationRow;
+window.minimizeWindow = function () { sendMessageToAHK({ command: 'minimize' }); };
+window.closeWindow = function () { sendMessageToAHK({ command: 'close' }); };
+window.autoSaveSettings = autoSaveSettings;
+window.handleManagerCheck = handleManagerCheck;
+window.handleDriverChange = handleDriverChange;
+
+// Daily Log Exports
+window.handleWorkTypeChange = handleWorkTypeChange;
+window.toggleAllWorkers = toggleAllWorkers;
+window.startDailyLog = startDailyLog;
+window.toggleDrinkCalibration = toggleDrinkCalibration;

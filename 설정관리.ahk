@@ -17,6 +17,16 @@ class ConfigManager {
         try {
             fileContent := FileRead(this.ConfigPath, "UTF-8")
             this.Config := JSON.parse(fileContent)
+
+            ; Decrypt sensitive fields
+            key := this.GetKey()
+            if (key != "" && this.Config.Has("users")) {
+                for uid, user in this.Config["users"] {
+                    if user.Has("profile") {
+                        this._DecryptProfile(user["profile"], key)
+                    }
+                }
+            }
             return true
         } catch as e {
             MsgBox("설정 파일 로드 중 오류 발생: " e.Message, "오류", "Iconx")
@@ -27,10 +37,31 @@ class ConfigManager {
     ; 설정 저장
     static Save() {
         try {
-            fileContent := JSON.stringify(this.Config, 4)
-            if FileExist(this.ConfigPath)
-                FileDelete(this.ConfigPath)
-            FileAppend(fileContent, this.ConfigPath, "UTF-8")
+            ; 1. Ensure file exists (to get File ID)
+            if !FileExist(this.ConfigPath)
+                FileAppend("", this.ConfigPath, "UTF-8")
+
+            ; 2. Prepare data for saving (Encrypt sensitive fields)
+            key := this.GetKey()
+
+            ; Deep Copy via JSON to avoid modifying in-memory Config
+            configToSave := JSON.parse(JSON.stringify(this.Config))
+
+            if (key != "" && configToSave.Has("users")) {
+                for uid, user in configToSave["users"] {
+                    if user.Has("profile") {
+                        this._EncryptProfile(user["profile"], key)
+                    }
+                }
+            }
+
+            fileContent := JSON.stringify(configToSave, 4)
+
+            ; 3. Overwrite file (Preserve File ID by using FileOpen with "w")
+            fObj := FileOpen(this.ConfigPath, "w", "UTF-8")
+            fObj.Write(fileContent)
+            fObj.Close()
+
             return true
         } catch as e {
             MsgBox("설정 파일 저장 중 오류 발생: " e.Message, "오류", "Iconx")
@@ -138,5 +169,39 @@ class ConfigManager {
 
         lastKey := keys[keys.Length]
         current[lastKey] := value
+    }
+    static GetKey() {
+        if FileExist(this.ConfigPath)
+            return GetFileID(this.ConfigPath)
+        return ""
+    }
+
+    static _EncryptProfile(profile, key) {
+        fields := ["pw2", "sapPW", "webPW"]
+        for field in fields {
+            if profile.Has(field) && profile[field] != "" {
+                ; Prevent double encryption if something goes wrong, though we work on copy.
+                ; Check if already encrypted? "ENC_"
+                if (SubStr(profile[field], 1, 4) != "ENC_")
+                    profile[field] := "ENC_" . Encrypt(profile[field], key)
+            }
+        }
+    }
+
+    static _DecryptProfile(profile, key) {
+        fields := ["pw2", "sapPW", "webPW"]
+        for field in fields {
+            if profile.Has(field) && profile[field] != "" {
+                if (SubStr(profile[field], 1, 4) == "ENC_") {
+                    try {
+                        decrypted := Decrypt(SubStr(profile[field], 5), key)
+                        profile[field] := decrypted
+                    } catch {
+                        ; Decryption failed (wrong key?), keep original or empty?
+                        ; Keep original (maybe user copied file manually?)
+                    }
+                }
+            }
+        }
     }
 }

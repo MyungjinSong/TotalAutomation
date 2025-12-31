@@ -146,35 +146,151 @@
             <!-- Daily Log View -->
             <div id="view-daily-log" class="view-section active">
                 <h1>일지생성</h1>
-                <p class="description">오늘의 업무 일지를 생성하고 관리합니다.</p>
-                <div class="card">
-                    <button class="primary-btn" onclick="runTask('DailyLog')">일지 생성 시작</button>
+                <div class="daily-log-container">
+                    <div class="daily-log-main">
+                        <!-- Left Column: Controls -->
+                        <div class="left-col">
+                            <div class="control-box">
+                                <label>근무 스케줄</label>
+                                <div class="option-group">
+                                    <label class="radio-label">
+                                        <input type="radio" name="work-type" value="day"
+                                            onchange="handleWorkTypeChange()">
+                                        <span>주간</span>
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="work-type" value="night"
+                                            onchange="handleWorkTypeChange()">
+                                        <span>야간</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="control-box expanded-box">
+                                <label>자동화 실행 목록</label>
+                                <div class="option-group checkbox-group vertical-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="chk-make-log">
+                                        <span>일지생성</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="chk-general" checked>
+                                        <span>일반업무</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="chk-safe-manage" checked>
+                                        <span>안전관리</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="chk-driving">
+                                        <span>운전적합성 점검표</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="control-box">
+                                <label>추가 옵션</label>
+                                <div class="option-group vertical-group">
+                                    <label class="checkbox-label" id="lbl-drink">
+                                        <input type="checkbox" id="chk-drink" onchange="toggleDrinkCalibration()">
+                                        <span>주간 음주측정</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="chk-drink-cal" disabled>
+                                        <span>음주측정기 교정</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Right Column: Worker List -->
+                        <div class="right-col">
+                            <div class="control-box" style="height: 100%;">
+                                <label>근무자</label>
+                                <div class="worker-list-wrap"
+                                    style="flex: 1; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; display: flex; flex-direction: column; overflow: hidden;">
+                                    <div class="worker-list-header">
+                                        <div class="wl-name">이름</div>
+                                        <div class="wl-note">휴가/비고</div>
+                                        <div class="wl-drive hidden-col" id="col-header-drive">운전</div>
+                                    </div>
+                                    <div id="daily-worker-list" class="worker-list-body">
+                                        <!-- Dynamic Content -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Separate Footer for Start Button -->
+                    <div class="daily-log-footer">
+                        <button class="primary-btn large-btn" onclick="startDailyLog()">시작</button>
+                    </div>
                 </div>
             </div>
 
             <!-- ERP Check View -->
             <div id="view-erp-check" class="view-section">
+                <!-- Compact header if needed or keep h1 but less margin -->
                 <h1>ERP일일점검</h1>
-                <p class="description">ERP 점검 업무를 수행합니다.</p>
-                <div class="card">
-                    <!-- Placeholder -->
-                    <p>준비 중입니다.</p>
+                <div class="erp-container">
+                    <div class="erp-compact-layout">
+                        <!-- Row 1: Substation -->
+                        <div class="erp-row">
+                            <div class="erp-label-col">변전소</div>
+                            <div class="erp-content-col">
+                                <div class="erp-grid-3" id="grid-substation"></div>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Electric Room -->
+                        <div class="erp-row">
+                            <div class="erp-label-col">전기실</div>
+                            <div class="erp-content-col">
+                                <div class="erp-group-container">
+                                    <div class="erp-group-stack">
+                                        <div class="erp-sub-header">그룹 1</div>
+                                        <div class="erp-btn-stack" id="elec-g1"></div>
+                                    </div>
+                                    <div class="erp-group-stack">
+                                        <div class="erp-sub-header">그룹 2</div>
+                                        <div class="erp-btn-stack" id="elec-g2"></div>
+                                    </div>
+                                    <div class="erp-group-stack">
+                                        <div class="erp-sub-header">그룹 3</div>
+                                        <div class="erp-btn-stack" id="elec-g3"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Etc -->
+                        <div class="erp-row">
+                            <div class="erp-label-col">기타업무</div>
+                            <div class="erp-content-col">
+                                <div class="erp-grid-3" id="grid-etc"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="erp-footer">
+                        <button class="secondary-btn" id="btn-erp-mode" onclick="toggleERPMode()">일괄모드 &gt;</button>
+                        <button class="primary-btn large-btn" onclick="runERPTask()">시작</button>
+                    </div>
                 </div>
             </div>
 
             <!-- Track Access View -->
             <div id="view-track-access" class="view-section">
                 <h1>선로출입관리</h1>
-                <p class="description">선로 출입 관련 일지를 생성합니다.</p>
                 <div class="card">
-                    <button class="primary-btn" onclick="runTask('TrackAccess')">일지 생성 시작</button>
+                    <button class="primary-btn" onclick="runTask('TrackAccess')">시작</button>
                 </div>
             </div>
 
             <!-- Vehicle Log View -->
             <div id="view-vehicle-log" class="view-section">
                 <h1>차량운행일지</h1>
-                <p class="description">차량 운행 기록을 관리합니다.</p>
                 <div class="card">
                     <!-- Placeholder -->
                     <p>준비 중입니다.</p>
