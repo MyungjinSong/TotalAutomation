@@ -293,18 +293,252 @@
 
             <!-- Track Access View -->
             <div id="view-track-access" class="view-section">
-                <h1>선로출입관리</h1>
-                <div class="card">
-                    <button class="primary-btn" onclick="runTask('TrackAccess')">시작</button>
+                <div class="header-row">
+                    <h1>선로출입관리</h1>
+                    <div class="preset-controls">
+                        <select id="track-preset-sel" class="preset-select" onchange="loadTrackPreset()"
+                            ondblclick="renameTrackPreset()">
+                            <option value="">프리셋 선택...</option>
+                            <!-- Options will be populated by JS, including 'New Preset' -->
+                        </select>
+                        <button class="secondary-btn small" onclick="saveTrackPreset()">저장</button>
+                        <button class="danger-btn small" onclick="deleteTrackPreset()">삭제</button>
+                    </div>
+                </div>
+
+                <div class="form-container">
+                    <div class="input-grid g-2">
+                        <!-- Left Column -->
+                        <div class="grid-col">
+                            <div class="form-group">
+                                <label>작업구분</label>
+                                <select id="ta-work-type">
+                                    <option value="1">선로일시 사용중지</option>
+                                    <option value="2">본선-철도장비운행</option>
+                                    <option value="3">본선-역 출입 작업</option>
+                                    <option value="4">기지내-철도장비운행</option>
+                                    <option value="5">기지내-작업</option>
+                                    <option value="6">본선-철도장비점검</option>
+                                    <option value="7">선로순회점검</option>
+                                    <option value="8">긴급점검</option>
+                                    <option value="9">본선-전동차운행</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>작업내역</label>
+                                <input type="text" id="ta-work-content">
+                            </div>
+                            <div class="form-group">
+                                <label>작업구간 (From ~ To)</label>
+                                <div class="pair-input">
+                                    <input type="text" id="ta-work-from" placeholder="From">
+                                    <span class="tilde">~</span>
+                                    <input type="text" id="ta-work-to" placeholder="To">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>운전원</label>
+                                <div class="pair-input">
+                                    <input type="text" id="ta-driver-name" placeholder="이름">
+                                    <input type="text" id="ta-driver-phone" placeholder="연락처">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>작업자</label>
+                                <div class="pair-input">
+                                    <input type="text" id="ta-worker-name" placeholder="이름">
+                                    <input type="text" id="ta-worker-phone" placeholder="연락처">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>철도운행안전관리자</label>
+                                <div class="pair-input">
+                                    <input type="text" id="ta-safety-name" placeholder="이름">
+                                    <input type="text" id="ta-safety-phone" placeholder="연락처">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>감독자 (사번)</label>
+                                <input type="text" id="ta-supervisor-id" placeholder="사번 입력">
+                            </div>
+                        </div>
+
+                        <!-- Right Column -->
+                        <div class="grid-col">
+                            <div class="form-group">
+                                <label>작업시간 (시작 ~ 종료)</label>
+                                <div class="pair-input">
+                                    <input type="text" id="ta-work-start" placeholder="HH:mm">
+                                    <span class="tilde">~</span>
+                                    <input type="text" id="ta-work-end" placeholder="HH:mm">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>운행시간 (시작 ~ 종료)</label>
+                                <div class="pair-input">
+                                    <input type="text" id="ta-op-start" placeholder="HH:mm">
+                                    <span class="tilde">~</span>
+                                    <input type="text" id="ta-op-end" placeholder="HH:mm">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>호선</label>
+                                <select id="ta-line">
+                                    <option value="1">1호선</option>
+                                    <option value="2">2호선</option>
+                                    <option value="3">3호선</option>
+                                    <option value="4">4호선</option>
+                                    <option value="5">노포차량기지</option>
+                                    <option value="6">신평차량기지</option>
+                                    <option value="7">호포차량기지</option>
+                                    <option value="8">대저차량기지</option>
+                                    <option value="9">안평차량기지</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>선로구분</label>
+                                <select id="ta-track-type">
+                                    <option value="1">일반</option>
+                                    <option value="2">하행선</option>
+                                    <option value="3">하행유치선</option>
+                                    <option value="4">하행모터카선</option>
+                                    <option value="5">상하행선</option>
+                                    <option value="6">하행건넘선</option>
+                                    <option value="7">4호선 회차선(상행)</option>
+                                    <option value="8">4호선 회차선(하행)</option>
+                                    <option value="9">반복선</option>
+                                    <option value="10">상행반복운전선(호포Only)</option>
+                                    <option value="11">하행반복운전선(호포Only)</option>
+                                    <option value="12">상행선</option>
+                                    <option value="13">상행유치선</option>
+                                    <option value="14">상행모터카선</option>
+                                    <option value="15">상행건넘선</option>
+                                    <option value="16">Y형 유치선</option>
+                                    <option value="17">안전측선</option>
+                                    <option value="18">반입선</option>
+                                    <option value="19">측선(기지구내)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>선로차단여부</label>
+                                <select id="ta-track-cutoff">
+                                    <option value="N">N</option>
+                                    <option value="Y">Y</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>철도운행협의서 No.</label>
+                                <input type="text" id="ta-agreement-no" placeholder="번호 입력">
+                            </div>
+                            <div class="sub-group">
+                                <label class="sub-label">총원 (인원 구성)</label>
+                                <div class="pair-input">
+                                    <input type="number" id="ta-total-count" placeholder="0">
+                                    <div class="read-only-text" id="ta-others-text">명</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer Options -->
+
+
+                    <div class="action-footer" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="margin-right: auto;">
+                            <label class="checkbox-label" style="display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:13px; color:#666;">출입역 입력 : </span>
+                                <input type="checkbox" id="ta-station-input">
+                                <span style="font-size:13px; color:#666;">작업역 구간과 동일</span>
+                            </label>
+                        </div>
+                        <button class="primary-btn large-btn" onclick="runTrackAccessTask()">시작</button>
+                    </div>
                 </div>
             </div>
 
             <!-- Vehicle Log View -->
             <div id="view-vehicle-log" class="view-section">
-                <h1>차량운행일지</h1>
-                <div class="card">
-                    <!-- Placeholder -->
-                    <p>준비 중입니다.</p>
+                <div class="header-row">
+                    <h1>차량운행일지</h1>
+                    <div class="preset-controls">
+                        <select id="vehicle-preset-sel" class="preset-select" onchange="loadVehiclePreset()"
+                            ondblclick="renameVehiclePreset()">
+                            <option value="">프리셋 선택...</option>
+                        </select>
+                        <button class="secondary-btn small" onclick="saveVehiclePreset()">저장</button>
+                        <button class="danger-btn small" onclick="deleteVehiclePreset()">삭제</button>
+                    </div>
+                </div>
+
+                <div class="form-container">
+                    <div class="input-grid g-2">
+                        <!-- Left Column -->
+                        <div class="grid-col">
+                            <div class="form-group">
+                                <label>운전자</label>
+                                <input type="text" id="vl-driver">
+                            </div>
+                            <div class="form-group">
+                                <label>작업구간 (시점 ~ 종점)</label>
+                                <div class="pair-input">
+                                    <input type="text" id="vl-point-1" placeholder="시점">
+                                    <span class="tilde">~</span>
+                                    <input type="text" id="vl-point-2" placeholder="종점">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>선로구분</label>
+                                <select id="vl-track-type">
+                                    <option value="상행선">상행선</option>
+                                    <option value="하행선">하행선</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>운행시간 (시작 ~ 종료)</label>
+                                <div class="pair-input">
+                                    <input type="text" id="vl-start-time" placeholder="HH:mm">
+                                    <span class="tilde">~</span>
+                                    <input type="text" id="vl-end-time" placeholder="HH:mm">
+                                </div>
+                            </div>
+                            <div class="form-group full-width-col">
+                                <label>내용</label>
+                                <input type="text" id="vl-content">
+                            </div>
+                            <div class="form-group full-width-col">
+                                <label>비고</label>
+                                <input type="text" id="vl-remarks">
+                            </div>
+                        </div>
+
+                        <!-- Right Column -->
+                        <div class="grid-col">
+                            <div class="form-group">
+                                <label>승인정보 (번호 / 부서 / 승인자)</label>
+                                <div class="input-grid g-3" style="gap:5px;">
+                                    <input type="text" id="vl-approve-no" placeholder="번호">
+                                    <input type="text" id="vl-dept" placeholder="부서">
+                                    <input type="text" id="vl-approver" placeholder="승인자">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <button class="secondary-btn full-width" style="margin-top: 10px; height: 40px;"
+                                    onclick="runBringApproved()">승인정보 불러오기</button>
+                            </div>
+                            <div class="form-group">
+                                <label>가동시간</label>
+                                <input type="text" id="vl-run-time">
+                            </div>
+                            <div class="form-group">
+                                <label>적산계</label>
+                                <input type="text" id="vl-distance">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="action-footer">
+                        <button class="primary-btn large-btn" onclick="runVehicleLogTask()">시작</button>
+                    </div>
                 </div>
             </div>
         </main>

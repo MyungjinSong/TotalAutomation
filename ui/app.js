@@ -106,6 +106,7 @@ function handleAhkMessage(msg) {
             break;
         case 'loadConfig':
             appConfig = msg.data;
+            initPresets(); // Initialize Presets for Track/Vehicle Views
             if (document.getElementById('settings-view').style.display !== 'none') {
                 loadSettingsToUI();
             }
@@ -1635,3 +1636,416 @@ window.toggleAllWorkers = toggleAllWorkers;
 window.updateToggleStyle = updateToggleStyle;
 window.startDailyLog = startDailyLog;
 window.toggleDrinkCalibration = toggleDrinkCalibration;
+
+// --- Helper: Preset Management ---
+function getUserPresets(type) {
+    const uid = selectedUserId;
+    if (!uid || !appConfig.users || !appConfig.users[uid]) return {};
+    const user = appConfig.users[uid];
+    if (type === 'track') return user.trackPresets || {};
+    if (type === 'vehicle') return user.vehiclePresets || {};
+    return {};
+}
+
+function saveUserPresets(type, presets) {
+    const uid = selectedUserId;
+    if (!uid) return;
+    if (!appConfig.users[uid]) return;
+
+    if (type === 'track') appConfig.users[uid].trackPresets = presets;
+    if (type === 'vehicle') appConfig.users[uid].vehiclePresets = presets;
+
+    sendMessageToAHK({ command: 'saveConfig', data: appConfig });
+}
+
+function renderPresetOptions(selectId, presets) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+
+    // Keep selection if possible
+    const currentVal = sel.value;
+
+    sel.innerHTML = '<option value="">프리셋 선택...</option>';
+
+    Object.keys(presets).forEach(key => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.text = key;
+        sel.appendChild(opt);
+    });
+
+    // "New Preset" Option
+    const newOpt = document.createElement('option');
+    newOpt.value = "__NEW__";
+    newOpt.text = "+ 새 프리셋 추가";
+    newOpt.style.fontWeight = "bold";
+    newOpt.style.color = "#0063B5";
+    sel.appendChild(newOpt);
+
+    if (presets[currentVal] || currentVal === '__NEW__') sel.value = currentVal;
+    if (!currentVal && Object.keys(presets).length > 0) sel.value = ""; // Default empty
+}
+
+// --- Track Access Logic ---
+function loadTrackPreset() {
+    const sel = document.getElementById('track-preset-sel');
+    const key = sel.value;
+
+    if (key === '__NEW__') {
+        // Clear Form for New Entry
+        setVal('ta-work-type', '1');
+        setVal('ta-work-content', '');
+        setVal('ta-work-from', '');
+        setVal('ta-work-to', '');
+        setVal('ta-driver-name', '');
+        setVal('ta-driver-phone', '');
+        setVal('ta-worker-name', '');
+        setVal('ta-worker-phone', '');
+        setVal('ta-safety-name', '');
+        setVal('ta-safety-phone', '');
+        setVal('ta-supervisor-id', '');
+
+        setVal('ta-work-start', '');
+        setVal('ta-work-end', '');
+        setVal('ta-op-start', '');
+        setVal('ta-op-end', '');
+        setVal('ta-line', '1');
+        setVal('ta-track-type', '1');
+        if (document.getElementById('ta-track-cutoff')) document.getElementById('ta-track-cutoff').checked = false;
+        setVal('ta-agreement-no', '');
+        setVal('ta-total-count', '');
+        if (document.getElementById('ta-station-input')) document.getElementById('ta-station-input').checked = false;
+        return;
+    }
+
+    if (!key) return;
+
+    const presets = getUserPresets('track');
+    const data = presets[key];
+
+    if (data) {
+        setVal('ta-work-type', data.workType);
+        setVal('ta-work-content', data.content);
+        setVal('ta-work-from', data.workFrom);
+        setVal('ta-work-to', data.workTo);
+        setVal('ta-driver-name', data.driverName);
+        setVal('ta-driver-phone', data.driverPhone);
+        setVal('ta-worker-name', data.workerName);
+        setVal('ta-worker-phone', data.workerPhone);
+        setVal('ta-safety-name', data.safetyName);
+        setVal('ta-safety-phone', data.safetyPhone);
+        setVal('ta-supervisor-id', data.supervisorId);
+
+        setVal('ta-work-start', data.workStart);
+        setVal('ta-work-end', data.workEnd);
+        setVal('ta-op-start', data.opStart);
+        setVal('ta-op-end', data.opEnd);
+        setVal('ta-line', data.line);
+        setVal('ta-track-type', data.trackType);
+
+        if (document.getElementById('ta-track-cutoff')) document.getElementById('ta-track-cutoff').checked = !!data.trackCutoff;
+        setVal('ta-agreement-no', data.agreementNo);
+        setVal('ta-total-count', data.totalCount);
+        if (document.getElementById('ta-station-input')) document.getElementById('ta-station-input').checked = !!data.stationInput;
+    }
+}
+
+function saveTrackPreset() {
+    const sel = document.getElementById('track-preset-sel');
+    let key = sel.value;
+
+    if (!key || key === '__NEW__') {
+        const newName = prompt("새 프리셋 이름을 입력하세요:");
+        if (!newName) return;
+        key = newName;
+    }
+
+    const data = {
+        workType: getVal('ta-work-type'),
+        content: getVal('ta-work-content'),
+        workFrom: getVal('ta-work-from'),
+        workTo: getVal('ta-work-to'),
+        driverName: getVal('ta-driver-name'),
+        driverPhone: getVal('ta-driver-phone'),
+        workerName: getVal('ta-worker-name'),
+        workerPhone: getVal('ta-worker-phone'),
+        safetyName: getVal('ta-safety-name'),
+        safetyPhone: getVal('ta-safety-phone'),
+        supervisorId: getVal('ta-supervisor-id'),
+
+        workStart: getVal('ta-work-start'),
+        workEnd: getVal('ta-work-end'),
+        opStart: getVal('ta-op-start'),
+        opEnd: getVal('ta-op-end'),
+        line: getVal('ta-line'),
+        trackType: getVal('ta-track-type'),
+        trackCutoff: document.getElementById('ta-track-cutoff') ? document.getElementById('ta-track-cutoff').checked : false,
+        agreementNo: getVal('ta-agreement-no'),
+        totalCount: getVal('ta-total-count'),
+        stationInput: document.getElementById('ta-station-input') ? document.getElementById('ta-station-input').checked : false
+    };
+
+    const presets = getUserPresets('track');
+    presets[key] = data;
+    saveUserPresets('track', presets);
+
+    renderPresetOptions('track-preset-sel', presets);
+    sel.value = key;
+
+    showNativeMsgBox(`'${key}' 프리셋이 저장되었습니다.`);
+}
+
+function renameTrackPreset() {
+    const sel = document.getElementById('track-preset-sel');
+    const oldKey = sel.value;
+    if (!oldKey || oldKey === '__NEW__') {
+        showNativeMsgBox("이름을 변경할 프리셋을 선택해주세요.");
+        return;
+    }
+
+    const newKey = prompt("새 이름을 입력하세요:", oldKey);
+    if (!newKey || newKey === oldKey) return;
+
+    const presets = getUserPresets('track');
+    if (presets[newKey]) {
+        showNativeMsgBox("이미 존재하는 이름입니다.");
+        return;
+    }
+
+    presets[newKey] = presets[oldKey];
+    delete presets[oldKey];
+    saveUserPresets('track', presets);
+
+    renderPresetOptions('track-preset-sel', presets);
+    sel.value = newKey;
+}
+
+function deleteTrackPreset() {
+    const sel = document.getElementById('track-preset-sel');
+    const key = sel.value;
+    if (!key || key === '__NEW__') {
+        showNativeMsgBox("삭제할 프리셋을 선택해주세요.");
+        return;
+    }
+
+    if (!confirm(`'${key}' 프리셋을 삭제하시겠습니까?`)) return;
+
+    const presets = getUserPresets('track');
+    delete presets[key];
+    saveUserPresets('track', presets);
+
+    renderPresetOptions('track-preset-sel', presets);
+    sel.value = "";
+}
+
+function runTrackAccessTask() {
+    const data = {
+        workType: getVal('ta-work-type'),
+        content: getVal('ta-work-content'),
+        workFrom: getVal('ta-work-from'),
+        workTo: getVal('ta-work-to'),
+        driverName: getVal('ta-driver-name'),
+        driverPhone: getVal('ta-driver-phone'),
+        workerName: getVal('ta-worker-name'),
+        workerPhone: getVal('ta-worker-phone'),
+        safetyName: getVal('ta-safety-name'),
+        safetyPhone: getVal('ta-safety-phone'),
+        supervisorId: getVal('ta-supervisor-id'),
+
+        workStart: getVal('ta-work-start'),
+        workEnd: getVal('ta-work-end'),
+        opStart: getVal('ta-op-start'),
+        opEnd: getVal('ta-op-end'),
+        line: getVal('ta-line'),
+        trackType: getVal('ta-track-type'),
+        trackCutoff: document.getElementById('ta-track-cutoff') ? document.getElementById('ta-track-cutoff').checked : false,
+        agreementNo: getVal('ta-agreement-no'),
+        totalCount: getVal('ta-total-count'),
+        stationInput: document.getElementById('ta-station-input') ? document.getElementById('ta-station-input').checked : false
+    };
+
+    sendMessageToAHK({ command: 'runTask', task: 'TrackAccess', data: data });
+}
+
+
+// --- Vehicle Log Logic ---
+function loadVehiclePreset() {
+    const sel = document.getElementById('vehicle-preset-sel');
+    const key = sel.value;
+
+    if (key === '__NEW__') {
+        setVal('vl-driver', '');
+        setVal('vl-point-1', '');
+        setVal('vl-point-2', '');
+        setVal('vl-track-type', '상행선');
+        setVal('vl-start-time', '');
+        setVal('vl-end-time', '');
+        setVal('vl-content', '');
+        setVal('vl-remarks', '');
+        setVal('vl-approve-no', '');
+        setVal('vl-dept', '');
+        setVal('vl-approver', '');
+        setVal('vl-run-time', '');
+        setVal('vl-distance', '');
+        return;
+    }
+
+    if (!key) return;
+
+    const presets = getUserPresets('vehicle');
+    const data = presets[key];
+
+    if (data) {
+        setVal('vl-driver', data.driver);
+        setVal('vl-point-1', data.point1);
+        setVal('vl-point-2', data.point2);
+        setVal('vl-track-type', data.trackType);
+        setVal('vl-start-time', data.startTime);
+        setVal('vl-end-time', data.endTime);
+        setVal('vl-content', data.content);
+        setVal('vl-remarks', data.remarks);
+        setVal('vl-approve-no', data.approveNo);
+        setVal('vl-dept', data.dept);
+        setVal('vl-approver', data.approver);
+        setVal('vl-run-time', data.runTime);
+        setVal('vl-distance', data.distance);
+    }
+}
+
+function saveVehiclePreset() {
+    const sel = document.getElementById('vehicle-preset-sel');
+    let key = sel.value;
+
+    if (!key || key === '__NEW__') {
+        const newName = prompt("새 프리셋 이름을 입력하세요:");
+        if (!newName) return;
+        key = newName;
+    }
+
+    const data = {
+        driver: getVal('vl-driver'),
+        point1: getVal('vl-point-1'),
+        point2: getVal('vl-point-2'),
+        trackType: getVal('vl-track-type'),
+        startTime: getVal('vl-start-time'),
+        endTime: getVal('vl-end-time'),
+        content: getVal('vl-content'),
+        remarks: getVal('vl-remarks'),
+        approveNo: getVal('vl-approve-no'),
+        dept: getVal('vl-dept'),
+        approver: getVal('vl-approver'),
+        runTime: getVal('vl-run-time'),
+        distance: getVal('vl-distance')
+    };
+
+    const presets = getUserPresets('vehicle');
+    presets[key] = data;
+    saveUserPresets('vehicle', presets);
+
+    renderPresetOptions('vehicle-preset-sel', presets);
+    sel.value = key;
+
+    showNativeMsgBox(`'${key}' 프리셋이 저장되었습니다.`);
+}
+
+function renameVehiclePreset() {
+    const sel = document.getElementById('vehicle-preset-sel');
+    const oldKey = sel.value;
+    if (!oldKey || oldKey === '__NEW__') {
+        showNativeMsgBox("이름을 변경할 프리셋을 선택해주세요.");
+        return;
+    }
+
+    const newKey = prompt("새 이름을 입력하세요:", oldKey);
+    if (!newKey || newKey === oldKey) return;
+
+    const presets = getUserPresets('vehicle');
+    if (presets[newKey]) {
+        showNativeMsgBox("이미 존재하는 이름입니다.");
+        return;
+    }
+
+    presets[newKey] = presets[oldKey];
+    delete presets[oldKey];
+    saveUserPresets('vehicle', presets);
+
+    renderPresetOptions('vehicle-preset-sel', presets);
+    sel.value = newKey;
+}
+
+function deleteVehiclePreset() {
+    const sel = document.getElementById('vehicle-preset-sel');
+    const key = sel.value;
+    if (!key || key === '__NEW__') {
+        showNativeMsgBox("삭제할 프리셋을 선택해주세요.");
+        return;
+    }
+
+    if (!confirm(`'${key}' 프리셋을 삭제하시겠습니까?`)) return;
+
+    const presets = getUserPresets('vehicle');
+    delete presets[key];
+    saveUserPresets('vehicle', presets);
+
+    renderPresetOptions('vehicle-preset-sel', presets);
+    sel.value = "";
+}
+
+function runVehicleLogTask() {
+    const data = {
+        driver: getVal('vl-driver'),
+        point1: getVal('vl-point-1'),
+        point2: getVal('vl-point-2'),
+        trackType: getVal('vl-track-type'),
+        startTime: getVal('vl-start-time'),
+        endTime: getVal('vl-end-time'),
+        content: getVal('vl-content'),
+        remarks: getVal('vl-remarks'),
+        approveNo: getVal('vl-approve-no'),
+        dept: getVal('vl-dept'),
+        approver: getVal('vl-approver'),
+        runTime: getVal('vl-run-time'),
+        distance: getVal('vl-distance')
+    };
+
+    sendMessageToAHK({ command: 'runTask', task: 'VehicleLog', data: data });
+}
+
+// Execute 'runBringApproved' command
+function runBringApproved() {
+    sendMessageToAHK({ command: 'runTask', task: 'runBringApproved' });
+}
+
+// Helpers
+function getVal(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : '';
+}
+
+function setVal(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.value = val || '';
+}
+
+// Helper: Init Presets after login
+function initPresets() {
+    const trackPresets = getUserPresets('track');
+    const vehiclePresets = getUserPresets('vehicle');
+    renderPresetOptions('track-preset-sel', trackPresets);
+    renderPresetOptions('vehicle-preset-sel', vehiclePresets);
+}
+
+
+// Export new functions
+window.loadTrackPreset = loadTrackPreset;
+window.saveTrackPreset = saveTrackPreset;
+window.renameTrackPreset = renameTrackPreset;
+window.deleteTrackPreset = deleteTrackPreset;
+window.runTrackAccessTask = runTrackAccessTask;
+
+window.loadVehiclePreset = loadVehiclePreset;
+window.saveVehiclePreset = saveVehiclePreset;
+window.renameVehiclePreset = renameVehiclePreset;
+window.deleteVehiclePreset = deleteVehiclePreset;
+window.runVehicleLogTask = runVehicleLogTask;
+window.initPresets = initPresets; // To be called after login/load
