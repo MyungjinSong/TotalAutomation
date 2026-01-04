@@ -670,13 +670,139 @@ h1 {
     box-shadow: 0 2px 5px rgba(76, 175, 80, 0.3);
 }
 
+
+
 .erp-footer {
     padding: 15px;
     border-top: 1px solid #e0e0e0;
     display: flex;
     justify-content: space-between;
-    background: #fff;
+    align-items: center;
     margin-top: auto;
+}
+
+.erp-action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+/* Worker Format Toggle in Footer */
+.worker-format-toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: #666;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 34px;
+    height: 20px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+}
+
+input:checked+.slider {
+    background-color: var(--primary-color);
+}
+
+input:checked+.slider:before {
+    transform: translateX(14px);
+}
+
+.slider.round {
+    border-radius: 20px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
+
+.toggle-label-text.bold-active {
+    font-weight: bold;
+    color: #333;
+}
+
+/* Modal Worker Grid: 1 Column */
+.worker-list-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    /* 1 Column */
+    gap: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.worker-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.worker-checkbox-item:hover {
+    background-color: #f5f5f5;
+}
+
+.worker-checkbox-item input[type="checkbox"] {
+    cursor: pointer;
+}
+
+.modal-option-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+
+.text-toggle-btn {
+    background: none;
+    border: 1px solid #ddd;
+    /* Add border to make it look like a button */
+    border-radius: 4px;
+    color: #333;
+    /* Default color */
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 14px;
+    font-weight: normal;
+    /* Default normal */
+}
+
+.text-toggle-btn:hover {
+    background-color: #f0f0f0;
 }
 
 /* Batch Mode Styles */
@@ -1195,4 +1321,217 @@ button:disabled {
     font-size: 12px;
     border: 1px solid #ddd;
     border-radius: 4px;
+}
+
+/* Worker Format Toggle */
+.worker-format-toggle-container {
+    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    background-color: #fafafa;
+    border-top: 1px solid #eee;
+}
+
+.toggle-label-text {
+    font-size: 13px;
+    color: #666;
+}
+
+.toggle-label-text.bold-on-active {
+    color: #333;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+input:checked+.slider {
+    background-color: var(--primary-color);
+}
+
+input:focus+.slider {
+    box-shadow: 0 0 1px var(--primary-color);
+}
+
+input:checked+.slider:before {
+    transform: translateX(18px);
+}
+
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
+
+/* ERP Worker Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: var(--title-bar-height);
+    /* Below custom titlebar */
+    left: 0;
+    width: 100%;
+    height: calc(100vh - var(--title-bar-height));
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.2s;
+}
+
+.modal-content {
+    background: white;
+    width: 280px;
+    height: auto;
+    max-height: 90vh;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+    padding: 10px 20px;
+    border-bottom: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.close-btn-icon {
+    background: none;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    color: #999;
+}
+
+.close-btn-icon:hover {
+    color: #333;
+}
+
+.modal-body {
+    padding: 10px 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-option-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    margin-bottom: 0;
+    padding-bottom: 0px;
+    border-bottom: none;
+    color: #000;
+}
+
+.text-toggle-btn {
+    background: none;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    color: #000;
+}
+
+.text-toggle-btn.active {
+    font-weight: bold;
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+    background-color: #f1f8e9;
+}
+
+.modal-list-header {
+    margin-bottom: 10px;
+    background: #f9f9f9;
+    padding: 8px 12px;
+    border-radius: 4px;
+}
+
+.worker-list-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    /* 1 column */
+    gap: 0;
+    max-height: none;
+    overflow-y: visible;
+    margin-bottom: 15px;
+}
+
+.worker-checkbox-item {
+    display: block;
+    /* Let inner content handle flex */
+    padding: 2px 0;
+    border: none;
+    border-radius: 0;
+    cursor: auto;
+    /* Cursor handled by label */
+    color: #000;
+}
+
+.worker-checkbox-item:hover {
+    background-color: transparent;
+    border-color: transparent;
+}
+
+.worker-checkbox-item input {
+    margin: 0;
+    width: 16px;
+    height: 16px;
+}
+
+.modal-footer {
+    padding: 10px 20px;
+    border-top: 1px solid #eee;
+    background: #fdfdfd;
+}
+
+.full-width {
+    width: 100%;
 }

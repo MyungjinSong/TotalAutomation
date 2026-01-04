@@ -1,452 +1,523 @@
-#Requires AutoHotkey v2.0
+; ==============================================================================
+; ERP 점검 자동화 로직
+; ==============================================================================
+class ERP점검 {
 
-class ERPInspector {
-    static LoadingGui := ""
-    static WebAppURL :=
-        "https://script.google.com/macros/s/AKfycbyoSMf94VffKSvIoBNJHKkQqY213h6M9KhTSBJ1BK9ed8dW64d50ZbjGWGu4n31bJB-/exec"
-    static TARGET_SPREADSHEET_ID := "19rgzRnTQtOwwW7Ts5NbBuItNey94dAZsEnO7Tk0cm6s"
-    static Host := "124.53.39.7:10002"
-    static sapURL := "http://" ERPInspector.Host "/d/s/vcgYgdNicaIAwaXvwUONF2JQHHtCwogE/0BLU6TjjW769YG9FnHGXBrWpStcQz7ec-mLeAXdBi0wo"
-    static sapdownURL := "http://" ERPInspector.Host "/d/s/vcgYgdNicaIAwaXvwUONF2JQHHtCwogE/webapi/entry.cgi/%EC%9E%91%EC%97%85%EB%B3%B4%EA%B3%A0.sap?api=SYNO.SynologyDrive.Files&method=download&version=2&files=%5B%22id%3A780060735230228225%22%5D&force_download=true&json_error=true&_dc=1697345185683&sharing_token=%22"
+    ; --------------------------------------------------------------------------
+    ; Entry Point
+    ; --------------------------------------------------------------------------
+    static ValidLocations := Map()
 
-    static Start(locationName, orderNumber, locationType, members) {
-        ; 메인 창 숨김
-        if IsSet(MainGui)
-            MainGui.Hide()
+    ; --------------------------------------------------------------------------
+    ; Entry Point
+    ; --------------------------------------------------------------------------
+    static Start(msg) {
 
-        ; 로딩 창 표시
-        ERPInspector.ShowLoading("ERP 점검 매크로 실행 중...")
+        location := msg.Has("location") ? msg["location"] : ""
+        members := msg.Has("members") ? msg["members"] : []
+        format := msg.Has("format") ? msg["format"] : "summary"
+        targetType := msg.Has("targetType") ? msg["targetType"] : ""
+        targetOrder := msg.Has("targetOrder") ? msg["targetOrder"] : ""
+        userID := msg.Has("ID") ? msg["ID"] : ""
+        userPW := msg.Has("sapPW") ? msg["sapPW"] : ""
 
-        try {
-            ; 작업보고.sap 파일 확인 및 다운로드
-            if !FileExist("작업보고.sap") {
-                ERPInspector.UpdateLoadingText("작업보고.sap 다운로드 중...")
-                ERPInspector.DownloadSAPFile()
-            }
+        if (userPW == "") {
+            MsgBox("SAP PW 지정되지 않아 실행할 수 없습니다", "오류", "iconx")
+            return
+        }
 
-            ; 변전소인 경우 엑셀 다운로드 등 선행 작업
-            excelPath := ""
-            if (locationType == "변전소") {
-                ERPInspector.UpdateLoadingText("변전소 데이터 확인 중...")
-                excelPath := ERPInspector.CheckSubstation(locationName)
+        if (location == "") {
+            MsgBox("예외 발생 : 장소 미지정", "오류", "iconx")
+            return
+        }
 
-                ; 엑셀 다운로드 실패 또는 수동 전환 시 excelPath가 "MANUAL"일 수 있음
-                if (excelPath == "CANCEL") {
-                    ERPInspector.Stop()
-                    return
+        ; 1. 멤버 문자열 조합
+        memberStr := ""
+        if (members.Length > 0) {
+            if (format == "summary") {
+                memberStr := members[1] " 외 " (members.Length - 1) "명"
+            } else {
+                for index, name in members {
+                    memberStr .= (index == 1 ? "" : ", ") . name
                 }
             }
-
-            ; SAP 매크로 실행
-            ERPInspector.UpdateLoadingText("SAP 자동화 실행 중...")
-            ERPInspector.RunSAPMacro(locationName, orderNumber, locationType, members, excelPath)
-
-        } catch as e {
-            MsgBox("오류가 발생했습니다: " e.Message, "오류", "iconx")
-        } finally {
-            ERPInspector.Stop()
-        }
-    }
-
-    static Stop() {
-        ERPInspector.HideLoading()
-        if IsSet(MainGui)
-            MainGui.Show()
-    }
-
-    static ShowLoading(text := "처리 중...") {
-        if (ERPInspector.LoadingGui != "")
-            return
-
-        g := Gui("+AlwaysOnTop -Caption +ToolWindow +Owner")
-        g.BackColor := "White"
-        g.SetFont("s12", "맑은 고딕")
-
-        ; 간단한 로딩 UI 구성 (나중에 WebView로 교체 가능)
-        ; 여기서는 WebView2를 사용하여 CSS 애니메이션 표시
-        wv := WebView2.Create(g.Hwnd)
-        if (wv) {
-            rect := [0, 0, 300, 150] ; x, y, w, h
-            wv.SetRect(rect)
-            g.Show("w300 h150 Center NoActivate")
-
-            html := "
-            (
-                <!DOCTYPE html>
-                <html>
-                <head>
-                <style>
-                    body { 
-                        margin: 0; 
-                        padding: 0; 
-                        display: flex; 
-                        flex-direction: column;
-                        justify-content: center; 
-                        align-items: center; 
-                        height: 15vh; 
-                        font-family: 'Malgun Gothic', sans-serif;
-                        background-color: #f8f9fa;
-                        overflow: hidden;
-                    }
-                    .spinner {
-                        width: 50px;
-                        padding: 8px;
-                        aspect-ratio: 1;
-                        border-radius: 50%;
-                        background: #25b09b;
-                        --_m: 
-                            conic-gradient(#0000 10%,#000),
-                            linear-gradient(#000 0 0) content-box;
-                        -webkit-mask: var(--_m);
-                                mask: var(--_m);
-                        -webkit-mask-composite: source-out;
-                                mask-composite: subtract;
-                        animation: s3 1s infinite linear;
-                    }
-                    @keyframes s3 {to{transform: rotate(1turn)}}
-                    .text { margin-top: 20px; font-size: 16px; color: #333; font-weight: bold; }
-                </style>
-                </head>
-                <body>
-                    <div class="spinner"></div>
-                    <div class="text" id="status">" text "</div>
-                    <script>
-                        function updateText(newText) {
-                            document.getElementById('status').innerText = newText;
-                        }
-                    </script>
-                </body>
-                </html>
-            )"
-            wv.NavigateToString(html)
-            ERPInspector.LoadingGui := { Gui: g, Wv: wv }
         } else {
-            ; WebView 실패 시 기본 UI
-            g.AddText("vStatusCenter w280 Center", text)
-            g.Show("w300 h100 Center")
-            ERPInspector.LoadingGui := { Gui: g, Wv: "" }
-        }
-    }
-
-    static UpdateLoadingText(text) {
-        if (ERPInspector.LoadingGui == "")
+            MsgBox("예외 발생 : 작업자 미지정", "오류", "iconx")
             return
-
-        if (ERPInspector.LoadingGui.Wv) {
-            ERPInspector.LoadingGui.Wv.ExecuteScript("updateText('" text "');", 0)
-        } else {
-            try ERPInspector.LoadingGui.Gui["Status"].Text := text
-        }
-    }
-
-    static HideLoading() {
-        if (ERPInspector.LoadingGui != "") {
-            ERPInspector.LoadingGui.Gui.Destroy()
-            ERPInspector.LoadingGui := ""
-        }
-    }
-
-    static DownloadSAPFile() {
-        try {
-            wh := ComObject("WinHTTP.WinHTTPRequest.5.1")
-            wh.SetTimeouts(2000, 3000, 5000, 5000)
-            wh.Open("GET", ERPInspector.sapURL)
-            wh.Send()
-            wh.WaitForResponse()
-
-            ; 쿠키 추출 (Set-Cookie 헤더)
-            cookieHeader := wh.GetResponseHeader("Set-Cookie")
-            ; 실제 쿠키 값 파싱 로직이 필요할 수 있으나, 기존 코드에서는 특정 위치를 잘라냄.
-            ; 여기서는 전체 쿠키를 사용하는 것이 안전할 수 있음.
-            ; 기존 코드: cookie := SubStr(wh.GetResponseHeader("set-cookie"), 60, 248) -> 불안정해 보임
-
-            ; 기존 URL 구조상 sharing_token 뒤에 파라미터가 붙으므로 원본 로직을 최대한 존중하되,
-            ; Download 함수를 사용하여 처리.
-
-            ; 임시: WinHttp로 직접 다운로드 시도
-            wh.Open("GET", ERPInspector.sapURL) ; URL이 다운로드 URL이 아님, 확인 필요.
-            ; 기존 코드 로직: sapURL 접속 -> 쿠키 획득 -> sapdownURL + 쿠키 -> 다운로드
-
-            ; 쿠키 처리 로직 보완 (기존 코드 참조)
-            cookie := SubStr(cookieHeader, 60, 248)
-
-            downloadUrl := ERPInspector.sapdownURL . cookie . "%22"
-            Download(downloadUrl, "작업보고.sap")
-        } catch {
-            ; 실패 시 무시하거나 경고
-        }
-    }
-
-    static CheckSubstation(locationName) {
-        excelFileName := locationName ".xlsx"
-
-        ; 1. 다운로드 시도
-        if !ERPInspector.DownloadExcel(locationName, excelFileName) {
-            ; 다운로드 실패 시
-            if (MsgBox("웹 연동(엑셀 다운로드) 실패. 수동으로 진행하시겠습니까?", "확인", "YesNo IconExclamation") != "Yes")
-                return "CANCEL"
-            return "MANUAL"
         }
 
-        ; 2. 파일 수정 시간 확인 (최근 18시간 이내인지)
-        try {
-            fileTime := FileGetTime(excelFileName)
-            diffHours := DateDiff(A_Now, fileTime, "Hours")
+        ; 2. 점검 시작 (폴링 상태 기반 분기)
+        isSubstation := (targetType == "변전소")
+        isWebMode := false
 
-            if (diffHours > 18) {
-                if (MsgBox("엑셀 파일이 최근(18시간 내)에 수정되지 않았습니다. (경과: " diffHours "시간)`n수동으로 진행하시겠습니까?", "확인",
-                    "YesNo IconExclamation") != "Yes")
-                    return "CANCEL"
-                return "MANUAL"
+        if (isSubstation) {
+            if (this.ValidLocations.Has(location)) {
+                ; [GREEN] WEB 연동 가능
+                isWebMode := true
+                if (MsgBox("ERP 작업보고를 시작합니다.`n`n장소 : " . location . " (WEB앱 연동)`n점검자 : " . memberStr,
+                    "진행합니다", "0x1 Iconi") != "OK") {
+                    return
+                }
+                ; 비동기 다운로드 시작 (SAP 실행되는 동안 백그라운드 다운로드)
+                this.DownSheetAsync(location)
+            } else {
+                ; [RED] WEB 연동 불가 (또는 아직 작성 안됨) -> 수동 모드
+                if (MsgBox("ERP 작업보고를 시작합니다.`n`n장소 : " . location . " (엑셀 수동입력)`n점검자 : " . memberStr,
+                    "진행합니다", "0x1 Icon!") != "OK") {
+                    return
+                }
+                ; 로컬 엑셀 열기 (사용자가 확인/수정 후 종료하면 계속 진행)
+                this.OpenLocalExcel(location)
             }
-        } catch {
-            return "MANUAL"
+        } else {
+            ; 변전소 외 (전기실 등)
+            if (MsgBox("ERP 작업보고를 시작합니다.`n`n장소 : " . location . "`n점검자 : " . memberStr,
+                "진행합니다", "0x1 Iconi") != "OK") {
+                return
+            }
         }
 
-        return excelFileName
+        ; 3. SAP 자동 입력 실행
+        ; isWebMode 플래그는 여기서 딱히 필요 없지만(파일 날짜로 체크하므로), 로직 흐름상 명확히 함
+        this.Macro(memberStr, location, userID, userPW, targetType, targetOrder)
     }
 
-    static DownloadExcel(sheetName, savePath) {
-        try {
-            encName := ERPInspector.URLEncode(sheetName)
-            url := ERPInspector.WebAppURL "?fileId=" ERPInspector.TARGET_SPREADSHEET_ID "&sheetName=" encName "&filename=" encName ".xlsx"
+    ; --------------------------------------------------------------------------
+    ; Web / Excel Logic
+    ; --------------------------------------------------------------------------
 
-            Download(url, savePath)
+    ; --------------------------------------------------------------------------
+    ; Pre-Check Logic (Added for V3)
+    ; --------------------------------------------------------------------------
+    static PreCheck(location) {
+        ; Start에서 폴링 상태를 기반으로 판단하므로,
+        ; 모달 진입 시점의 팝업(PreCheck)은 제거합니다.
+        return
+    }
+
+    ; --------------------------------------------------------------------------
+    ; Web / Excel Logic
+    ; --------------------------------------------------------------------------
+    static DownSheetAsync(ss) {
+        global WebAppURL, TARGET_SPREADSHEET_ID
+
+        try {
+            ec_ss := URLEncode(ss)
+            url := WebAppURL . "?fileId=" . TARGET_SPREADSHEET_ID . "&sheetName=" . ec_ss . "&filename=" . ec_ss .
+                ".xlsx"
+
+            ; 임시 JSON 파일 경로 (고정된 이름 사용 또는 ID 기반)
+            ; 여기서는 간편함을 위해 working dir에 temp_ + location + .json 저장
+            tempFile := A_WorkingDir . "\temp_" . ss . ".json"
+
+            ; 기존 임시 파일 및 타겟 엑셀 파일 삭제
+            if FileExist(tempFile)
+                FileDelete(tempFile)
+
+            localFile := A_WorkingDir . "\" . ss . ".xlsx"
+            if FileExist(localFile)
+                FileDelete(localFile)
+
+            ; 비동기 실행 (Run) - JSON으로 다운로드됨
+            ; -s: Silent, -L: Follow redirects, -o: Output file
+            Run 'curl -sL --ssl-no-revoke -o "' . tempFile . '" "' . url . '"', , "Hide"
             return true
         } catch {
             return false
         }
     }
 
-    static RunSAPMacro(locationName, orderNumber, locationType, members, excelPath) {
+    ; --------------------------------------------------------------------------
+    ; File Processing (Decode & Save)
+    ; --------------------------------------------------------------------------
+    static ProcessDownload(ss) {
+        tempFile := A_WorkingDir . "\temp_" . ss . ".json"
+        targetFile := A_WorkingDir . "\" . ss . ".xlsx"
 
-        ; 수동 입력 필요 시 엑셀 열기
-        if (locationType == "변전소" && (excelPath == "MANUAL" || excelPath == "")) {
-            ERPInspector.HideLoading() ; 수동 조작을 위해 로딩창 숨김
+        if !FileExist(tempFile)
+            return false
 
-            if (MsgBox("변전소 수동 입력 모드입니다.`n엑셀을 열고 데이터를 입력한 후 저장하고 엑셀을 종료해주세요.`n종료가 감지되면 SAP 입력이 시작됩니다.", "안내",
-                "OKCancel IconInformation") == "Cancel") {
-                return
-            }
-
+        try {
+            ; 1. JSON 읽기
+            ; 파일이 쓰기 중일 수 있으므로 읽기 시도
+            fileContent := ""
             try {
-                if !FileExist(locationName ".xlsx")
-                    FileAppend("", locationName ".xlsx") ; 빈 파일 생성 시도 (혹은 템플릿 복사 필요)
-
-                Run(locationName ".xlsx")
-                if WinWaitActive("ahk_class XLMAIN", , 10) {
-                    WinWaitClose("ahk_class XLMAIN")
-                } else {
-                    MsgBox("엑셀을 찾을 수 없습니다.")
-                    return
-                }
+                fileContent := FileRead(tempFile, "UTF-8")
             } catch {
-                MsgBox("엑셀 실행 중 오류 발생")
-                return
+                return false ; 아직 다운로드 중이거나 락 걸림
             }
 
-            ERPInspector.ShowLoading("SAP 입력 준비 중...")
-        }
+            if (fileContent == "")
+                return false
 
-        ; SAP 실행
-        if !FileExist("작업보고.sap") {
-            MsgBox("작업보고.sap 파일이 없습니다.")
+            ; 2. 파싱 및 디코딩
+            data := JSON.parse(fileContent)
+
+            if (data.Has("error")) {
+                MsgBox("서버 오류: " . data["error"], "오류", "iconx")
+                try FileDelete(tempFile) ; 에러 파일 삭제
+                return false ; 영구 실패지만 루프에서 계속 재시도하지 않도록 처리는 상위에서
+            }
+
+            if (!data.Has("base64")) {
+                ; JSON 형식이 아님 (혹시라도 그냥 엑셀이 받아진 경우?)
+                return false
+            }
+
+            base64Str := data["base64"]
+            binaryData := this.BufferFromBase64(base64Str)
+
+            ; 3. 엑셀 파일로 저장
+            f := FileOpen(targetFile, "w")
+            f.RawWrite(binaryData)
+            f.Close()
+
+            ; 4. 성공 시 임시 파일 삭제
+            try FileDelete(tempFile)
+            return true
+
+        } catch as e {
+            ; 파싱 에러 등은 아직 다운로드가 덜 되어서 그럴 수 있음
+            return false
+        }
+    }
+
+    static BufferFromBase64(str) {
+        if (str == "")
+            return Buffer(0)
+
+        ; CRYPT_STRING_BASE64 = 0x00000001
+        size := 0
+        DllCall("Crypt32\CryptStringToBinaryW", "Str", str, "UInt", 0, "UInt", 1, "Ptr", 0, "UInt*", &size, "Ptr", 0,
+            "Ptr", 0)
+
+        buf := Buffer(size)
+        DllCall("Crypt32\CryptStringToBinaryW", "Str", str, "UInt", 0, "UInt", 1, "Ptr", buf, "UInt*", &size, "Ptr", 0,
+            "Ptr", 0)
+
+        return buf
+    }
+
+    static OpenLocalExcel(ss) {
+        ; 엑셀 파일 열고 사용자 확인 대기
+        try {
+            Run(ss . ".xlsx", , "Max")
+            if !WinWaitActive(ss, , 5) {
+                ; 창 제목 매칭이 안 될 수도 있으니 관대하게 넘어감
+            }
+
+            MsgBox("측정값을 확인/수정 후 엑셀을 저장하고 종료해주세요.`n`n엑셀이 종료되면 자동으로 다음 단계(SAP 입력)가 진행됩니다.", "안내", "iconi")
+
+            ; 엑셀 프로세스가 닫힐 때까지 대기 (Excel 파일명 윈도우)
+            ; 정확한 핸들링을 위해 WinWaitClose 사용
+            WinWaitClose(ss)
+            Sleep 500
+        } catch {
+            MsgBox("엑셀 처리 중 오류 발생", "오류", "iconx")
+        }
+    }
+
+    ; --------------------------------------------------------------------------
+    ; SAP Automation Logic
+    ; --------------------------------------------------------------------------
+    static Macro(member, ss, uID, uPW, targetType, targetOrder) {
+
+        chk1 := true
+        chk2 := true
+        chk3 := true
+
+        ; SAP 실행 (이미 실행 중이면 활성화됨)
+        try {
+            Run("작업보고.sap")
+        } catch {
+            MsgBox("작업보고.sap 실행 파일을 찾을 수 없습니다.", "오류", "iconx")
             return
         }
 
-        Run("작업보고.sap")
-
-        ; SAP GUI 제어 (기존 로직 이식)
-        ERPInspector.ProcessSAP(orderNumber, members, locationType, locationName)
-    }
-
-    static ProcessSAP(orderNumber, members, locationType, locationName) {
-        chk1 := true, chk2 := true, chk3 := true
-
-        loginConfig := ConfigManager.GetSAPConfig()
-        sapID := loginConfig.ID
-        sapPW := loginConfig.PW
-
-        loop 30 { ; 최대 30초 대기
+        loop 15 { ; SAP 진입 대기 (약 15초)
             Sleep 1000
 
-            ; 1. 보안 경고 처리
-            if WinExist("SAP GUI 보안") && chk1 {
-                WinActivate
+            ; 1. SAP GUI 보안 경고 처리
+            if WinExist("SAP GUI 보안") and chk1 {
                 Sleep 250
-                Send "{Space}"
+                ControlSend "{Space}", "Button1", "SAP GUI 보안" ; 허용
                 Sleep 250
-                Send "{Enter}"
+                ControlSend "{Enter}", "Button2", "SAP GUI 보안"
                 chk1 := false
             }
 
-            ; 2. 로그인 (유형 A)
-            if WinExist("작업완료보고 ahk_class #32770") && chk2 {
-                WinActivate
+            ; 2. 기존 로그인 창 (#32770) 처리
+            if WinExist("작업완료보고 ahk_class #32770") and chk2 {
                 Sleep 250
-                Send "{Ctrl down}a{Ctrl up}"
+                ControlSend "{Ctrl down}a{Ctrl up}", "Edit1", "작업완료보고"
                 Sleep 250
-                Send "{Text}" sapID
+                ControlSend uID, "Edit1", "작업완료보고"
                 Sleep 250
-                Send "{Tab}"
-                Sleep 250
-                Send "{Text}" sapPW
+                ControlSend "{Raw}" . uPW, "Edit2", "작업완료보고"
                 Sleep 500
-                Send "{Enter}"
+                ControlSend "{Left}{Enter}", "Edit2", "작업완료보고"
                 chk2 := false
             }
 
-            ; 3. 로그인 (유형 B)
-            if WinExist("SAP ahk_class SAP_FRONTEND_SESSION", , "Easy") && chk3 {
+            ; 3. 메인 세션 창 처리
+            if WinExist("SAP ahk_class SAP_FRONTEND_SESSION", , "Easy") and chk3 {
                 WinActivate
                 Sleep 250
-                Send "{Ctrl down}a{Ctrl up}"
-                Send "{Text}" sapID
+                Send "{Ctrl down}a{Ctrl up}" . uID
                 Send "{Tab}"
-                Send "{Text}" sapPW
-                Send "{Enter}"
+                Send "{Raw}" . uPW
+                Send "{Left}{Enter}"
                 chk3 := false
             }
 
-            ; 4. 오더창 진입 확인
+            ; 4. 오더번호 입력 창 진입 확인
             if WinExist("작업완료보고 ahk_class SAP_FRONTEND_SESSION") {
                 WinActivate
                 Sleep 750
-                if WinGetMinMax("작업완료보고 ahk_class SAP_FRONTEND_SESSION") != 1
+                if (WinGetMinMax("작업완료보고 ahk_class SAP_FRONTEND_SESSION") != 1) {
                     WinMaximize
+                    Sleep 500
+                }
 
-                Send "{Text}" orderNumber
-                Send "{Enter}"
-                break
+                ; 오더번호 입력
+                orderNum := targetOrder
+                if (orderNum == "") {
+                    MsgBox("해당 장소(" . ss . ")의 오더번호를 찾을 수 없습니다.`n설정을 확인해주세요.", "오류", "iconx")
+                    return
+                }
+
+                Send orderNum . "{Enter}"
+                break ; 루프 탈출 -> 다음 단계
             }
 
-            if (A_Index == 30) {
-                MsgBox("SAP 로그인/실행 시간 초과")
+            if (A_Index == 15) {
+                MsgBox("시간초과: SAP 실행 실패", "오류", "iconx")
                 return
             }
         }
 
-        ; 오더 진입 대기
-        if !ERPInspector.WaitForOrderEntry() {
-            ERPInspector.Stop()
-            return
+        {	;작업보고 대기
+            sleep 250
+            CoordMode "Pixel", "Screen"
+            GetCaretPos(&cx, &cy, &cw, &ch)
+            nowColor := PixelGetColor(cx + 5, cy + 5)
+            while nowColor != 0xDFEBF5 {
+                WinActivate("작업완료보고")
+                sleep 100
+                send "{end}"
+                if A_Index > 20 {
+                    MsgBox("시간초과로 종료합니다 - 오더 진입실패" getPos, "타임아웃", "iconx")
+                    ExitApp
+                }
+                sleep 150
+                GetCaretPos(&cx, &cy, &cw, &ch)
+                nowColor := PixelGetColor(cx + 5, cy + 5)
+                getPos .= "`n" cx ", " cy " => " PixelGetColor(cx + 5, cy + 5)
+            }
+            CoordMode "Pixel", "Client"
+            sleep 500
         }
 
-        ; 데이터 입력
+        ; 입력 시작
         Send "{Tab 16}"
         Sleep 250
-        A_Clipboard := members
-        Send "^v" ; 작업자 입력
+
+        A_Clipboard := member
+        Send "^v" ; 작업자 붙여넣기
         Sleep 500
 
-        if (locationType == "변전소") {
-            ; 측정값 입력 탭 이동
+        ; 변전소인 경우 측정값 입력 진행
+        if (targetType == "변전소") {
+            ; 측정값 입력 (Shift+Tab으로 이동 후 입력)
             Send "{Shift down}{Tab 14}{Shift up}{Right 2}{Enter}"
             Sleep 500
             Send "{Tab 5}{Enter}" ; 업로드 버튼
             Sleep 500
 
-            ; 파일 선택 창
+            ; 파일 선택 창 대기
             if WinWait("열기 ahk_exe saplogon.exe", , 15) {
                 Sleep 250
-                Send "{Tab}{Shift down}{Tab}{Shift up}"
+                Send "{Tab}{Shift down}{Tab}{Shift up}" ; 파일명 입력칸 포커스
                 Sleep 250
-                Send "{Text}" A_WorkingDir "\" locationName ".xlsx"
-                Sleep 250
-                Send "{Enter}"
 
-                ; 입력 완료 대기 (원래 로직 복원)
-                if !ERPInspector.WaitForInputBuffer() {
-                    ERPInspector.Stop()
-                    return
+                ; 파일 경로 입력
+                localFile := A_WorkingDir . "\" . ss . ".xlsx"
+                loop 20 {
+                    ; 1. 파일이 이미 있고 최신이면 OK
+                    if FileExist(localFile) {
+                        if SubStr(FileGetTime(localFile, "M"), 1, 8) = FormatTime(, "yyyyMMdd") {
+                            break
+                        }
+                    }
+
+                    ; 2. 임시 파일 확인 및 변환 시도
+                    if (this.ProcessDownload(ss)) {
+                        break ; 변환 성공 (이제 Loop 다시 돌면 1번 조건 만족)
+                    }
+
+                    if (A_Index == 20) {
+                        MsgBox("점검데이터 다운로드에 실패하였습니다`n처음부터 다시 시도하시기 바랍니다", "타임아웃", "iconx")
+                        return ; 매크로 중단
+                    }
+                    Sleep 500
                 }
-            } else {
-                MsgBox("파일 선택 창이 뜨지 않았습니다.")
-                ERPInspector.Stop()
-                return
+
+                send localFile
+                sleep 250
+                send "{Enter}"
             }
-        }
-
-        MsgBox("입력이 완료되었습니다. 확인 후 저장하세요.", "완료", "iconi")
-    }
-
-    static WaitForOrderEntry() {
-        ; 원래의 픽셀서치 로직 복원
-        sleep 250
-        CoordMode "Pixel", "Screen"
-        getPos := ""
-        loop {
-            if WinExist("작업완료보고 ahk_class SAP_FRONTEND_SESSION")
-                WinActivate
-
-            if GetCaretPos(&cx, &cy, &cw, &ch) {
-                nowColor := PixelGetColor(cx + 5, cy + 5)
-                if (nowColor == 0xDFEBF5)
-                    break
+            else {
+                MsgBox("시간초과로 종료합니다 - 불러오기 실패", "타임아웃", "iconx")
+                ExitApp
             }
 
-            WinActivate("작업완료보고")
-            sleep 100
-            Send "{end}"
-
-            if A_Index > 20 {
-                MsgBox("시간초과로 종료합니다 - 오더 진입실패`n" getPos, "타임아웃", "iconx")
-                return false
-            }
-
-            sleep 150
-            if GetCaretPos(&cx, &cy, &cw, &ch) {
-                getPos .= "`n" cx ", " cy " => " PixelGetColor(cx + 5, cy + 5)
-            }
-        }
-        CoordMode "Pixel", "Client"
-        sleep 500
-        return true
-    }
-
-    static WaitForInputBuffer() {
-        ; 측정값 입력 완료 대기 (원래 로직 복원)
-        sleep 250
-        CoordMode "Pixel", "Screen"
-        loop {
-            if GetCaretPos(&cx, &cy, &cw, &ch) {
-                if (PixelGetColor(cx + 5, cy + 5) == 0xFEF09E)
-                    break
-            }
-
-            WinActivate("작업완료보고")
+            ;입력확인
             sleep 250
+            CoordMode "Pixel", "Screen"
+            while !GetCaretPos(&cx, &cy, &cw, &ch) || PixelGetColor(cx + 5, cy + 5) != 0xFEF09E {
+                WinActivate("작업완료보고")
+                sleep 250
 
-            if WinExist("SAP GUI 보안") {
-                WinActivate
-                sleep 250
-                ControlSend("{Space}", "button1", "SAP GUI 보안")
-                sleep 250
-                ControlSend("{Enter}", "button2", "SAP GUI 보안")
-                sleep 250
-            }
+                if WinExist("SAP GUI 보안") {
+                    WinActivate
+                    sleep 250
+                    controlsend("{Space}", "button1", "SAP GUI 보안")
+                    sleep 250
+                    controlsend("{Enter}", "button2", "SAP GUI 보안")
+                }
 
-            if WinExist("Microsoft Office Excel ahk_exe EXCEL.EXE") { ; 엑셀경고
-                WinActivate
-                sleep 250
-                Send "y"
-                sleep 250
-            }
+                if WinExist("Microsoft Office Excel ahk_exe EXCEL.EXE")	;엑셀경고
+                {
+                    WinActivate
+                    sleep 250
+                    send "y"
+                    sleep 250
+                }
 
-            Send "{end}"
-            if A_Index > 40 {
-                MsgBox("시간초과로 종료합니다 - 측정값 입력 실패", "타임아웃", "iconx")
-                return false
+                send "{end}"
+                if A_Index > 40 {
+                    MsgBox("시간초과로 종료합니다 - 측정값 입력 실패", "타임아웃", "iconx")
+                    ExitApp
+                }
+
             }
+            CoordMode "Pixel", "Client"
         }
-        CoordMode "Pixel", "Client"
-        return true
+
+        MsgBox("입력이 완료되었습니다.`nERP 화면을 확인 후 저장하시기 바랍니다.", "완료", "iconi")
+
+        return
+    }
+    ; --------------------------------------------------------------------------
+    ; Polling Logic
+    ; --------------------------------------------------------------------------
+    static StartPolling() {
+        ; 1분마다 상태 갱신 요청
+        SetTimer () => ERP점검.RequestStatus(), 60000
+        ; 시작 시 즉시 1회 실행
+        ERP점검.RequestStatus()
     }
 
-    static URLEncode(str, encoding := "UTF-8") {
-        return str ; 간단히 처리하거나 실제 인코딩 함수 필요. AHK v2에는 내장함수가 없으므로 필요시 구현
+    static RequestStatus() {
+        global WebAppURL
+
+        url := WebAppURL . "?action=getFormList"
+        tempFile := A_ScriptDir . "\erp_status_temp.json"
+
+        ; 기존 파일 정리
+        if FileExist(tempFile) {
+            try FileDelete tempFile
+        }
+
+        ; 비동기(Non-blocking) 실행: 외부 프로세스에 위임
+        ; -s: Silent, -o: Output file, -L: Follow redirects (GAS 필수)
+        ; curl이 없으면 실패하겠지만 Windows 10/11은 기본 내장됨
+        cmd := 'curl.exe -sL "' . url . '" -o "' . tempFile . '"'
+
+        try {
+            Run cmd, , "Hide"
+        } catch {
+            ; curl 실행 실패 시 (경로 문제 등) silent 하게 넘어갑니다.
+            return
+        }
+
+        ; 타이머 콜백 초기화 (최초 1회)
+        if !HasProp(ERP점검, "TimerCallback") || !ERP점검.TimerCallback
+            ERP점검.TimerCallback := ObjBindMethod(ERP점검, "CheckResponse")
+
+        ; 결과 확인 타이머 시작 (0.2초 간격)
+        ERP점검.CheckCount := 0
+        SetTimer ERP점검.TimerCallback, 200
     }
 
+    static CheckCount := 0
+    static TimerCallback := ""
+
+    static CheckResponse() {
+        tempFile := A_ScriptDir . "\erp_status_temp.json"
+
+        ; CheckCount가 없으면 초기화 (만약을 대비)
+        if !HasProp(ERP점검, "CheckCount")
+            ERP점검.CheckCount := 0
+
+        ERP점검.CheckCount += 1
+
+        ; 타임아웃 처리 (약 20초 = 100회)
+        if (ERP점검.CheckCount > 100) {
+            if (ERP점검.TimerCallback)
+                SetTimer ERP점검.TimerCallback, 0 ; 타이머 중지
+
+            if FileExist(tempFile)
+                try FileDelete tempFile
+            return
+        }
+
+        if !FileExist(tempFile)
+            return
+
+        ; 파일 읽기 시도
+        try {
+            fileContent := FileRead(tempFile, "UTF-8")
+            if (fileContent == "")
+                return ; 아직 다 안 써진 경우
+
+            ; JSON 파싱 시도
+            data := JSON.parse(fileContent)
+
+            ; --- 성공 시 처리 ---
+            if (ERP점검.TimerCallback)
+                SetTimer ERP점검.TimerCallback, 0 ; 타이머 중지
+
+            try FileDelete tempFile
+
+            global wv
+            statusMap := Map()
+            todayStr := FormatTime(, "yyyy-MM-dd")
+
+            if (data is Array) {
+                ERP점검.ValidLocations := Map() ; 캐시 초기화
+                for item in data {
+                    if (!item.Has("lastModifiedDate") || !item.Has("sheetName"))
+                        continue
+
+                    lmDateRaw := item["lastModifiedDate"]
+                    if InStr(lmDateRaw, todayStr) {
+                        name := Trim(item["sheetName"]) ; 공백 제거
+                        statusMap[name] := true
+                        ERP점검.ValidLocations[name] := true ; 유효 목록 업데이트
+                    }
+                }
+            }
+
+            ; WebView로 전송
+            payload := Map("type", "updateERPStatus", "status", statusMap)
+            jsonStr := JSON.stringify(payload)
+            wv.PostWebMessageAsJson(jsonStr)
+
+        } catch as e {
+            ; JSON 파싱 에러 등은 무시하고 다음 틱 재시도
+        }
+    }
 }
 
 GetCaretPos(&X, &Y, &W, &H) {
@@ -470,8 +541,8 @@ GetCaretPos(&X, &Y, &W, &H) {
     try {
         idObject := 0xFFFFFFF8 ; OBJID_CARET
         if DllCall("oleacc\AccessibleObjectFromWindow", "ptr", WinExist("A"), "uint", idObject &= 0xFFFFFFFF
-        , "ptr", -16 + NumPut("int64", idObject == 0xFFFFFFF0 ? 0x46000000000000C0 : 0x719B3800AA000C81, NumPut(
-            "int64", idObject == 0xFFFFFFF0 ? 0x0000000000020400 : 0x11CF3C3D618736E0, IID := Buffer(16)))
+        , "ptr", -16 + NumPut("int64", idObject == 0xFFFFFFF0 ? 0x46000000000000C0 : 0x719B3800AA000C81, NumPut("int64",
+            idObject == 0xFFFFFFF0 ? 0x0000000000020400 : 0x11CF3C3D618736E0, IID := Buffer(16)))
         , "ptr*", oAcc := ComValue(9, 0)) = 0 {
             x := Buffer(4), y := Buffer(4), w := Buffer(4), h := Buffer(4)
             oAcc.accLocation(ComValue(0x4003, x.ptr, 1), ComValue(0x4003, y.ptr, 1), ComValue(0x4003, w.ptr, 1),
@@ -486,6 +557,24 @@ GetCaretPos(&X, &Y, &W, &H) {
     static IUIA := ComObject("{e22ad333-b25f-460c-83d0-0581107395c9}", "{34723aff-0c9d-49d0-9896-7ab52df8cd8a}")
     try {
         ComCall(8, IUIA, "ptr*", &FocusedEl := 0) ; GetFocusedElement
+        /*
+        	The current implementation uses only TextPattern GetSelections and not TextPattern2 GetCaretRange.
+        	This is because TextPattern2 is less often supported, or sometimes reports being implemented
+        	but in reality is not. The only downside to using GetSelections is that when text
+        	is selected then caret position is ambiguous. Nevertheless, in those cases it most
+        	likely doesn't matter much whether the caret is in the beginning or end of the selection.
+        
+        	If GetCaretRange is needed then the following code implements that:
+        	ComCall(16, FocusedEl, "int", 10024, "ptr*", &patternObject:=0), ObjRelease(FocusedEl) ; GetCurrentPattern. TextPattern2 = 10024
+        	if patternObject {
+        		ComCall(10, patternObject, "int*", &IsActive:=1, "ptr*", &caretRange:=0), ObjRelease(patternObject) ; GetCaretRange
+        		ComCall(10, caretRange, "ptr*", &boundingRects:=0), ObjRelease(caretRange) ; GetBoundingRectangles
+        		if (Rect := ComValue(0x2005, boundingRects)).MaxIndex() = 3 { ; VT_ARRAY | VT_R8
+        			X:=Round(Rect[0]), Y:=Round(Rect[1]), W:=Round(Rect[2]), H:=Round(Rect[3])
+        			return
+        		}
+        	}
+        */
         ComCall(16, FocusedEl, "int", 10014, "ptr*", &patternObject := 0), ObjRelease(FocusedEl) ; GetCurrentPattern. TextPattern = 10014
         if patternObject {
             ComCall(5, patternObject, "ptr*", &selectionRanges := 0), ObjRelease(patternObject) ; GetSelections

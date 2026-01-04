@@ -1,0 +1,15 @@
+[System]
+Name=BEP
+Description=02. ERP 운영시스템
+Client=100
+[User]
+Name=115073
+Language=KO
+[Function]
+Title=작업완료보고
+Command=ZPMM2418
+[Configuration]
+GuiSize=Maximized
+WorkDir=C:\Users\user\Documents\SAP\SAP GUI
+[Options]
+Reuse=1

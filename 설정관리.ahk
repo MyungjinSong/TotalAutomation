@@ -10,7 +10,7 @@ class ConfigManager {
     static Load() {
         if !FileExist(this.ConfigPath) {
             this.Config := Map("users", Map(), "appSettings", Map())
-            this.Save() ; Create the file immediately
+            this.Save() ; 즉시 파일 생성
             return true
         }
 
@@ -18,7 +18,7 @@ class ConfigManager {
             fileContent := FileRead(this.ConfigPath, "UTF-8")
             this.Config := JSON.parse(fileContent)
 
-            ; Decrypt sensitive fields
+            ; 민감한 필드 복호화
             key := this.GetKey()
             if (key != "" && this.Config.Has("users")) {
                 for uid, user in this.Config["users"] {
@@ -37,14 +37,14 @@ class ConfigManager {
     ; 설정 저장
     static Save() {
         try {
-            ; 1. Ensure file exists (to get File ID)
+            ; 1. 파일이 존재하는지 확인 (파일 ID를 얻기 위해)
             if !FileExist(this.ConfigPath)
                 FileAppend("", this.ConfigPath, "UTF-8")
 
-            ; 2. Prepare data for saving (Encrypt sensitive fields)
+            ; 2. 저장할 데이터 준비 (민감한 필드 암호화)
             key := this.GetKey()
 
-            ; Deep Copy via JSON to avoid modifying in-memory Config
+            ; 메모리 내 구성을 수정하지 않도록 JSON을 통한 깊은 복사
             configToSave := JSON.parse(JSON.stringify(this.Config))
 
             if (key != "" && configToSave.Has("users")) {
@@ -57,7 +57,7 @@ class ConfigManager {
 
             fileContent := JSON.stringify(configToSave, 4)
 
-            ; 3. Overwrite file (Preserve File ID by using FileOpen with "w")
+            ; 3. 파일 덮어쓰기 (FileOpen을 "w"로 사용하여 파일 ID 보존)
             fObj := FileOpen(this.ConfigPath, "w", "UTF-8")
             fObj.Write(fileContent)
             fObj.Close()
@@ -123,8 +123,6 @@ class ConfigManager {
     static _InitializeUser(userID) {
         this.Config["users"][userID] := Map(
             "profile", Map("id", userID),
-            "colleagues", [],
-            "locations", [],
             "hotkeys", [],
             "presets", Map()
         )
@@ -180,8 +178,8 @@ class ConfigManager {
         fields := ["pw2", "sapPW", "webPW"]
         for field in fields {
             if profile.Has(field) && profile[field] != "" {
-                ; Prevent double encryption if something goes wrong, though we work on copy.
-                ; Check if already encrypted? "ENC_"
+                ; 사본에서 작업하지만 문제가 발생할 경우 이중 암호화 방지.
+                ; 이미 암호화되었는지 확인? "ENC_"
                 if (SubStr(profile[field], 1, 4) != "ENC_")
                     profile[field] := "ENC_" . Encrypt(profile[field], key)
             }
@@ -197,8 +195,8 @@ class ConfigManager {
                         decrypted := Decrypt(SubStr(profile[field], 5), key)
                         profile[field] := decrypted
                     } catch {
-                        ; Decryption failed (wrong key?), keep original or empty?
-                        ; Keep original (maybe user copied file manually?)
+                        ; 복호화 실패 (잘못된 키?), 원본 유지 또는 비워두기?
+                        ; 원본 유지 (사용자가 수동으로 파일을 복사했을 수 있음)
                     }
                 }
             }

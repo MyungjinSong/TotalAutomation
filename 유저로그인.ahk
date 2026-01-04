@@ -293,8 +293,6 @@ class UserInputGUI {
                 "team", team,
                 "department", "호포전기분소"
             ),
-            "colleagues", [],
-            "locations", [],
             "hotkeys", [],
             "presets", Map()
         )

@@ -5,6 +5,7 @@ let appConfig = {};
 let selectedUserId = null;
 let loginUsers = []; // Store user data for login validation
 let isDailyLogInitialized = false; // Flag for persistence
+let pendingRestoreState = null; // State waiting for config load
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -113,6 +114,12 @@ function handleAhkMessage(msg) {
                 renderDailyLogUI();
                 isDailyLogInitialized = true;
             }
+
+            // Apply pending restore if exists (Race Condition Fix)
+            if (pendingRestoreState) {
+                restoreUiStateData(pendingRestoreState);
+                pendingRestoreState = null;
+            }
             break;
         case 'releaseNotes':
             if (msg.error) {
@@ -121,6 +128,155 @@ function handleAhkMessage(msg) {
                 renderReleaseNotes(msg.data);
             }
             break;
+        case 'getUiState':
+            const state = collectUiState();
+            sendMessageToAHK({ command: 'saveUiState', data: state });
+            break;
+        case 'restoreUiState':
+            if (isDailyLogInitialized) {
+                restoreUiStateData(msg.data);
+            } else {
+                pendingRestoreState = msg.data;
+            }
+            break;
+        case 'updateERPStatus':
+            handleERPStatusUpdate(msg.status);
+            break;
+    }
+}
+
+// --- State Persistence ---
+function collectUiState() {
+    const state = {
+        activeView: null,
+        mainTab: null,
+        formData: {},
+        customState: {} // Generic storage for .savable-ui elements
+    };
+
+    // 1. Active View detection
+    if (document.getElementById('app-container').style.display !== 'none') state.activeView = 'app';
+    else if (document.getElementById('settings-view').style.display !== 'none') state.activeView = 'settings';
+    else if (document.getElementById('add-user-view').style.display !== 'none') state.activeView = 'add';
+    else state.activeView = 'login'; // default
+
+    // 2. Active Main Tab
+    const activeTab = document.querySelector('.view-section.active');
+    if (activeTab) state.mainTab = activeTab.id;
+
+    // 3. Form Data
+    // 모든 input, select, textarea 수집 (비밀번호 제외)
+    const elements = document.querySelectorAll('input, select, textarea');
+    elements.forEach(el => {
+        if (!el.id) return; // ID가 없으면 복구 불가
+        if (el.type === 'password') return; // 비밀번호는 제외
+
+        // 제외할 기타 요소들이 있다면 여기서 필터링
+
+        let value;
+        if (el.type === 'checkbox') {
+            value = el.checked;
+        } else if (el.type === 'radio') {
+            if (el.checked) value = el.value;
+            else return; // 라디오는 선택된 것만 저장
+        } else {
+            value = el.value;
+        }
+
+        state.formData[el.id] = {
+            tag: el.tagName,
+            type: el.type,
+            value: value
+        };
+    });
+
+    // 4. Custom Savable UI
+    document.querySelectorAll('.savable-ui').forEach(el => {
+        const key = el.getAttribute('data-save-key');
+        if (key) {
+            state.customState[key] = getSavableValue(el, key);
+        }
+    });
+
+    return state;
+}
+
+function getSavableValue(el, key) {
+    if (key === 'erpLocation') {
+        return selectedERPLocation;
+    }
+    // Future extensions:
+    // if (key === 'someOtherWidget') return ...;
+    return null;
+}
+
+function restoreUiStateData(state) {
+    if (!state) return;
+
+    // 1. Restore View
+    if (state.activeView) {
+        switchView(state.activeView);
+    }
+
+    // 2. Restore Main Tab (if in app view)
+    if (state.activeView === 'app' && state.mainTab) {
+        switchMainTab(state.mainTab);
+    }
+
+    // 3. Restore Form Data
+    if (state.formData) {
+        Object.keys(state.formData).forEach(id => {
+            const data = state.formData[id];
+            const el = document.getElementById(id);
+            if (!el) return;
+
+            // 타입 검사 등 안전장치
+            if (el.type === 'checkbox') {
+                el.checked = data.value;
+            } else if (el.type === 'radio') {
+                // 라디오는 같은 Name 그룹 내에서 해당 ID를 체크
+                el.checked = true;
+            } else {
+                el.value = data.value;
+            }
+
+            // Trigger input event for auto-save logic or UI updates
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    }
+
+
+
+    // 4. Restore Custom UI
+    if (state.customState) {
+        Object.keys(state.customState).forEach(key => {
+            const val = state.customState[key];
+            // Find element by key
+            const el = document.querySelector(`.savable-ui[data-save-key="${key}"]`);
+            if (el) {
+                applySavableValue(el, key, val);
+            }
+        });
+    }
+
+}
+
+function applySavableValue(el, key, value) {
+    if (key === 'erpLocation') {
+        selectedERPLocation = value;
+        // Search and Select Button
+        // Wait a bit for dynamic content if needed, though usually loaded by now
+        setTimeout(() => {
+            const buttons = el.querySelectorAll('.erp-btn');
+            buttons.forEach(btn => {
+                if (btn.innerText === value) {
+                    btn.classList.add('selected');
+                } else {
+                    btn.classList.remove('selected');
+                }
+            });
+        }, 50);
     }
 }
 
@@ -137,6 +293,23 @@ function switchMainTab(viewId) {
     if (navItem) navItem.classList.add('active');
 
     if (viewId === 'view-erp-check') {
+        // Apply User Preference for Inspector Format
+        // Logic: If user has a specific preference, override the current state?
+        // Or only set initial state? "Initial value" was requested.
+        // Let's set it based on config every time we switch to this tab.
+        const uid = selectedUserId;
+        if (uid && appConfig.users && appConfig.users[uid]) {
+            const pref = appConfig.users[uid].profile.erpFormat || 'summary';
+            const toggle = document.getElementById('toggle-worker-format');
+            // summary = unchecked, list = checked
+            const shouldBeChecked = (pref === 'list');
+            if (toggle.checked !== shouldBeChecked) {
+                toggle.checked = shouldBeChecked;
+                updateToggleStyle();
+                // Note: We do NOT dispatch 'change' event here to avoid triggering auto-save indirectly
+                // (though we added the guard clause just in case)
+            }
+        }
         renderERPCheck();
     } else if (viewId === 'view-daily-log') {
         // Only render if NOT initialized yet (Persistence Fix)
@@ -481,10 +654,13 @@ function loadSettingsToUI() {
     setVal('user-team', profile.team);
     setVal('user-webpw', profile.webPW);
     setVal('user-pw2', profile.pw2);
+    setVal('user-pw2', profile.pw2);
     setVal('user-sappw', profile.sapPW);
+    // New Setting: Inspector Display Format Preference (Default: summary)
+    setVal('erp-format-pref', profile.erpFormat || 'summary');
 
     // DEBUG: Trace Data
-    // showNativeMsgBox("UI Load for " + uid + " | Workers: " + (user.colleagues ? user.colleagues.length : 'null'), "Debug");
+    // showNativeMsgBox("UI Load for " + uid + " | Workers: " + appConfig.appSettings?.colleagues?.length, "Debug");
 
     // Attach AutoSave to User Info inputs
     ['user-dept', 'user-team', 'user-webpw', 'user-pw2', 'user-sappw'].forEach(id => {
@@ -493,15 +669,17 @@ function loadSettingsToUI() {
         if (el && el.tagName === 'SELECT') el.onchange = autoSaveSettings;
     });
 
-    // Workers
+    // Workers (Global from appSettings)
     const wBody = document.querySelector('#worker-table tbody');
     wBody.innerHTML = '';
-    (user.colleagues || []).forEach(w => addWorkerRowToTable(wBody, w));
+    const globalWorkers = appConfig.appSettings?.colleagues || [];
+    globalWorkers.forEach(w => addWorkerRowToTable(wBody, w));
 
-    // Locations
+    // Locations (Global)
     const lBody = document.querySelector('#location-table tbody');
     lBody.innerHTML = '';
-    (user.locations || []).forEach(l => addLocationRowToTable(lBody, l));
+    const globalLocs = (appConfig.appSettings && appConfig.appSettings.locations) ? appConfig.appSettings.locations : [];
+    globalLocs.forEach(l => addLocationRowToTable(lBody, l));
 
     // Hotkeys
     const hBody = document.querySelector('#hotkey-table tbody');
@@ -516,6 +694,10 @@ function loadSettingsToUI() {
 
 function saveSettings() {
     try {
+        // [CRITICAL FIX] Prevent Auto-Save when Settings View is hidden
+        // This prevents wiping data if called unintentionally from other views
+        if (document.getElementById('settings-view').style.display === 'none') return;
+
         const uid = selectedUserId;
         if (!uid || !appConfig.users) return;
 
@@ -530,6 +712,8 @@ function saveSettings() {
         user.profile.webPW = getVal('user-webpw');
         user.profile.pw2 = getVal('user-pw2');
         user.profile.sapPW = getVal('user-sappw');
+        // New Setting: Inspector Display Format Preference
+        user.profile.erpFormat = getVal('erp-format-pref');
 
 
         // Gather Workers with Logic
@@ -566,9 +750,10 @@ function saveSettings() {
         // If multiple managers are checked, we might warn or just save.
         // User requested: "Only 1 manager possible". Let's enforce in UI changes mostly.
 
-        user.colleagues = newWorkers;
+        if (!appConfig.appSettings) appConfig.appSettings = {};
+        appConfig.appSettings.colleagues = newWorkers;
 
-        // Gather Locations
+        // Gather Locations (Global)
         const newLocs = [];
         document.querySelectorAll('#location-table tbody tr').forEach(row => {
             const inputs = row.querySelectorAll('input, select');
@@ -578,7 +763,9 @@ function saveSettings() {
                 type: inputs[2].value
             });
         });
-        user.locations = newLocs;
+
+        if (!appConfig.appSettings) appConfig.appSettings = {};
+        appConfig.appSettings.locations = newLocs;
 
         // Gather Hotkeys
         const newHotkeys = [];
@@ -820,11 +1007,8 @@ function formatPhone(input) {
 let selectedERPLocation = null;
 
 function renderERPCheck() {
-    // 1. Get current user locations
-    const uid = selectedUserId;
-    if (!uid || !appConfig.users || !appConfig.users[uid]) return;
-
-    const locations = appConfig.users[uid].locations || [];
+    // 1. Get global locations
+    const locations = (appConfig.appSettings && appConfig.appSettings.locations) ? appConfig.appSettings.locations : [];
 
     // 2. Clear containers
     const gridSub = document.getElementById('grid-substation');
@@ -845,16 +1029,29 @@ function renderERPCheck() {
     locations.forEach(loc => {
         const btn = document.createElement('div');
         btn.className = 'erp-btn';
-        btn.innerText = loc.name;
+        // Use TextNode to avoid overwriting span later if we appended
+        btn.appendChild(document.createTextNode(loc.name));
+
+        btn.dataset.locName = loc.name;
         btn.onclick = () => selectERPLoc(btn, loc.name);
 
         if (loc.type === '변전소') {
+            // Default Status Dot (Yellow)
+            const dot = document.createElement('span');
+            dot.className = 'status-dot';
+            dot.style.fontSize = '1.2em';
+            dot.style.marginLeft = '5px';
+            dot.style.fontWeight = 'bold';
+            dot.style.color = '#FFC107'; // Amber/Yellow
+            dot.innerText = '●';
+            dot.title = "데이터 확인 중..."; // Initial tooltip
+            btn.appendChild(dot);
+
             gridSub.appendChild(btn);
         } else if (loc.type === '기타업무') {
             gridEtc.appendChild(btn);
         } else if (loc.type.startsWith('전기실')) {
             // Group Matching
-            // Normalized check for specific groups
             if (loc.type.includes('그룹1')) {
                 elG1.appendChild(btn);
             } else if (loc.type.includes('그룹2')) {
@@ -862,13 +1059,47 @@ function renderERPCheck() {
             } else if (loc.type.includes('그룹3')) {
                 elG3.appendChild(btn);
             } else {
-                // Fallback for undefined groups, put in G3 or ETC?
-                // Putting in ETC for safety if unknown
                 gridEtc.appendChild(btn);
             }
         }
     });
+
+    // Apply cached status if available
+    handleERPStatusUpdate(null);
 }
+
+// ... (SelectERPLoc, Toggle, Run logic skipped/unchanged) ...
+
+// --- ERP Status Update (Polling) ---
+let latestERPStatus = null;
+
+function handleERPStatusUpdate(statusMap) {
+    if (statusMap) {
+        latestERPStatus = statusMap;
+    } else if (latestERPStatus) {
+        statusMap = latestERPStatus;
+    } else {
+        return; // Keep Yellow
+    }
+
+    const btns = document.querySelectorAll('#grid-substation .erp-btn[data-loc-name]');
+
+    btns.forEach(btn => {
+        const locName = btn.dataset.locName;
+        const dot = btn.querySelector('.status-dot');
+
+        if (dot) {
+            // AHK JSON serialization might send 1 instead of true
+            const isUpdated = statusMap[locName] ? true : false;
+            dot.style.color = isUpdated ? '#4CAF50' : '#FF0000'; // Green vs Red
+            dot.title = isUpdated ? "점검 완료 (오늘)" : "점검 미완료";
+
+            // Re-assert visibility (in case)
+            dot.style.display = 'inline';
+        }
+    });
+}
+window.handleERPStatusUpdate = handleERPStatusUpdate;
 
 function selectERPLoc(btn, locName) {
     // Deselect all
@@ -946,7 +1177,8 @@ function renderDailyLogUI() {
     handleWorkTypeChange(false); // Validates and sets checkboxes
 
     // 2. Render Worker List
-    renderDailyWorkerList(appConfig.users[uid]);
+    // 2. Render Worker List
+    renderDailyWorkerList();
 
     isDailyLogInitialized = true;
 }
@@ -961,10 +1193,6 @@ function handleWorkTypeChange(skipRenderWorkers = true) {
     const chkDriving = document.getElementById('chk-driving');
     const chkDrink = document.getElementById('chk-drink');
     const chkCal = document.getElementById('chk-drink-cal');
-
-    // Always Checked/Enabled
-    chkGeneral.checked = true;
-    chkSafe.checked = true;
 
     if (isDay) {
         // Day Mode
@@ -1031,16 +1259,22 @@ function toggleDrinkCalibration() {
     }
 }
 
-function renderDailyWorkerList(user) {
+function renderDailyWorkerList() {
     const container = document.getElementById('daily-worker-list');
     container.innerHTML = '';
     // const countSpan = document.getElementById('worker-count'); // Removed
 
-    const colleagues = user.colleagues || [];
+    // Get Current User ID & Profile
+    const uid = selectedUserId;
+    if (!uid || !appConfig.users || !appConfig.users[uid]) return;
+    const user = appConfig.users[uid];
+
+    // Use Global Colleagues
+    const allColleagues = appConfig.appSettings?.colleagues || [];
     const myTeam = (user.profile && user.profile.team) ? user.profile.team : '';
 
     // Filter: Same Team OR '일근'
-    const filteredWorkers = colleagues.filter(w => {
+    const filteredWorkers = allColleagues.filter(w => {
         if (w.team === '일근') return true;
         if (myTeam && w.team === myTeam) return true;
         return false;
@@ -1066,13 +1300,13 @@ function renderDailyWorkerList(user) {
         const driveClass = isDay ? 'wl-drive hidden-col w-drive-cell' : 'wl-drive w-drive-cell';
 
         row.innerHTML = `
-            <label class="wl-name checkbox-label" style="margin: 0;">
-                <input type="checkbox" ${isChecked ? 'checked' : ''} class="w-chk">
+            <label class="wl-name checkbox-label" style="margin: 0;" for="chk-worker-${worker.id}">
+                <input type="checkbox" ${isChecked ? 'checked' : ''} class="w-chk" id="chk-worker-${worker.id}">
                 <span>${worker.name}</span>
             </label>
-            <div class="wl-note"><input type="text" placeholder="사유" class="w-note"></div>
+            <div class="wl-note"><input type="text" placeholder="사유" class="w-note" id="note-worker-${worker.id}"></div>
             <div class="${driveClass}">
-                <select class="w-drive" disabled>
+                <select class="w-drive" disabled id="drv-worker-${worker.id}">
                     <option value="">-</option>
                     <option value="정" ${worker.driverRole === '정' ? 'selected' : ''}>정</option>
                     <option value="부" ${worker.driverRole === '부' ? 'selected' : ''}>부</option>
@@ -1173,7 +1407,7 @@ function startDailyLog() {
 
 // Global Exports
 window.switchMainTab = switchMainTab;
-window.runTask = function (task) { showNativeMsgBox(task + ' 시작'); };
+window.runTask = function (task) { sendMessageToAHK({ command: 'runTask', task: task }); };
 window.openSettings = openSettings;
 window.closeSettings = closeSettings;
 window.switchSettingsTab = switchSettingsTab;
@@ -1191,7 +1425,213 @@ window.handleManagerCheck = handleManagerCheck;
 window.handleDriverChange = handleDriverChange;
 
 // Daily Log Exports
+// --- ERP Worker Modal Logic ---
+
+let erpModalWorkerList = []; // Cache list
+
+function openERPWorkerModal() {
+    if (!selectedERPLocation) {
+        showNativeMsgBox("점검 장소를 선택해주세요.");
+        return;
+    }
+
+    // [New Logic] Check Substation Type & Trigger Pre-Check
+    const uid = selectedUserId;
+    if (uid && appConfig.appSettings && appConfig.appSettings.locations) {
+        const locData = appConfig.appSettings.locations.find(l => l.name === selectedERPLocation);
+        if (locData && locData.type === '변전소') {
+            // Trigger AHK Pre-Check (Async/Blocking handled by AHK MsgBox)
+            sendMessageToAHK({ command: 'checkSubstation', location: selectedERPLocation });
+            // Note: If AHK shows a blocking MsgBox, the WebView might pause or waiting
+            // user interaction on the AHK side.
+        }
+    }
+
+    const modal = document.getElementById('erp-worker-modal');
+    modal.style.display = 'flex';
+
+    // Sync Toggle State from Main Tab
+    const mainToggle = document.getElementById('toggle-worker-format');
+    updateModalToggleState(mainToggle.checked);
+
+    // Render List
+    renderERPWorkerList();
+}
+
+function closeERPWorkerModal() {
+    document.getElementById('erp-worker-modal').style.display = 'none';
+}
+
+function renderERPWorkerList() {
+    const uid = selectedUserId;
+    if (!uid || !appConfig.users || !appConfig.users[uid]) return;
+
+    // Use global appSettings.colleagues
+    const allColleagues = appConfig.appSettings?.colleagues || [];
+
+    // Get My Team
+    const user = appConfig.users[uid];
+    const myTeam = (user.profile && user.profile.team) ? user.profile.team : '';
+
+    const container = document.getElementById('erp-worker-list');
+    container.innerHTML = '';
+
+    // Filter: ID Match (if needed) or Team Match
+    // Logic: Config colleagues contains EVERYONE. We need to filter by myTeam.
+    const filteredWorkers = allColleagues.filter(w => {
+        if (myTeam && w.team === myTeam) return true;
+        return false;
+    });
+
+    if (filteredWorkers.length === 0) {
+        container.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px; color:#999;">점검자 목록이 없습니다.<br>설정에서 작업자를 추가해주세요.</div>';
+        return;
+    }
+
+    // Sort: Manager First, then ID
+    const sortedWorkers = [...filteredWorkers].sort((a, b) => {
+        if (a.isManager !== b.isManager) return b.isManager - a.isManager;
+        return a.id.localeCompare(b.id);
+    });
+
+    erpModalWorkerList = sortedWorkers; // Cache for submission
+
+    sortedWorkers.forEach(worker => {
+        const div = document.createElement('div');
+        div.className = 'worker-checkbox-item';
+        // Remove custom onclick handler (causes double-toggle with label)
+
+        const isChecked = true; // Default Select All
+
+        div.innerHTML = `
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; width:100%; color:black;">
+                <input type="checkbox" id="chk-erp-${worker.id}" ${isChecked ? 'checked' : ''} value="${worker.name}" onchange="updateModalButtonText()" style="width:16px; height:16px; accent-color:#4CAF50;">
+                <span style="font-size:14px; margin-top:1px;">${worker.name}</span>
+            </label>
+        `;
+        container.appendChild(div);
+    });
+
+    // Initial Button Text Update
+    updateModalButtonText();
+}
+
+function toggleModalWorkerFormat() {
+    // Toggle the Main Tab Switch (Source of Truth)
+    const mainToggle = document.getElementById('toggle-worker-format');
+    mainToggle.checked = !mainToggle.checked;
+
+    // Trigger change event to save state if needed (savable-ui) and update styles
+    mainToggle.dispatchEvent(new Event('change', { bubbles: true }));
+
+    updateModalToggleState(mainToggle.checked);
+    updateModalButtonText(); // Update text format
+}
+
+function updateModalToggleState(isListMode) {
+    // No longer changing button text here based on mode alone, 
+    // now we update based on selection + mode in updateModalButtonText
+}
+
+// Renamed/Refactored: Updates the button text dynamically
+function updateModalButtonText() {
+    const isListMode = document.getElementById('toggle-worker-format').checked;
+    const btn = document.getElementById('btn-erp-modal-toggle');
+
+    // Gather selected names
+    const selectedNames = [];
+    const checkboxes = document.querySelectorAll('#erp-worker-list input[type="checkbox"]');
+    checkboxes.forEach(c => {
+        if (c.checked) selectedNames.push(c.value);
+    });
+
+    if (selectedNames.length === 0) {
+        btn.innerText = "(선택 없음)";
+        return;
+    }
+
+    if (isListMode) {
+        // List Mode: "Name1, Name2, Name3"
+        btn.innerText = selectedNames.join(', ');
+    } else {
+        // Summary Mode: "Name1 외 N명"
+        if (selectedNames.length === 1) {
+            btn.innerText = selectedNames[0];
+        } else {
+            btn.innerText = `${selectedNames[0]} 외 ${selectedNames.length - 1}명`;
+        }
+    }
+}
+
+function submitERPTask() {
+    // 1. Gather Selected Workers
+    const selectedNames = [];
+    const checkboxes = document.querySelectorAll('#erp-worker-list input[type="checkbox"]');
+    checkboxes.forEach(c => {
+        if (c.checked) selectedNames.push(c.value);
+    });
+
+    if (selectedNames.length === 0) {
+        showNativeMsgBox("작업자를 한 명 이상 선택해주세요.");
+        return;
+    }
+
+    // 2. Check Format
+    const isListMode = document.getElementById('toggle-worker-format').checked;
+    const format = isListMode ? 'list' : 'summary';
+
+    // 3. Find Location Data (Type, Order)
+    const locName = selectedERPLocation;
+    let locType = "";
+    let locOrder = "";
+
+    // appConfig.appSettings.locations should be available
+    if (appConfig.appSettings && appConfig.appSettings.locations) {
+        const locObj = appConfig.appSettings.locations.find(l => l.name === locName);
+        if (locObj) {
+            locType = locObj.type || "";
+            locOrder = locObj.order || "";
+        }
+    }
+
+    // 4. Send to AHK
+    sendMessageToAHK({
+        command: 'runTask',
+        task: 'ERPCheck',
+        location: locName,
+        targetType: locType,
+        targetOrder: locOrder,
+        members: selectedNames,
+        format: format
+    });
+
+    closeERPWorkerModal();
+}
+
+function updateToggleStyle() {
+    const toggle = document.getElementById('toggle-worker-format');
+    const lblSummary = document.getElementById('lbl-format-summary');
+    const lblList = document.getElementById('lbl-format-list');
+
+    if (toggle.checked) {
+        // List Mode Checked
+        if (lblSummary) lblSummary.classList.remove('bold-active');
+        if (lblList) lblList.classList.add('bold-active');
+    } else {
+        // Summary Mode Unchecked
+        if (lblSummary) lblSummary.classList.add('bold-active');
+        if (lblList) lblList.classList.remove('bold-active');
+    }
+    autoSaveSettings();
+}
+
+// Global Exports
+window.openERPWorkerModal = openERPWorkerModal;
+window.closeERPWorkerModal = closeERPWorkerModal;
+window.toggleModalWorkerFormat = toggleModalWorkerFormat;
+window.submitERPTask = submitERPTask;
 window.handleWorkTypeChange = handleWorkTypeChange;
 window.toggleAllWorkers = toggleAllWorkers;
+window.updateToggleStyle = updateToggleStyle;
 window.startDailyLog = startDailyLog;
 window.toggleDrinkCalibration = toggleDrinkCalibration;
