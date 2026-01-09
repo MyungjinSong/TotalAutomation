@@ -235,7 +235,7 @@ class ERP점검 {
         }
 
         loop 15 { ; SAP 진입 대기 (약 15초)
-            Sleep 1000
+            Sleep 100
 
             ; 1. SAP GUI 보안 경고 처리
             if WinExist("SAP GUI 보안") and chk1 {
@@ -247,15 +247,13 @@ class ERP점검 {
             }
 
             ; 2. 기존 로그인 창 (#32770) 처리
-            if WinExist("작업완료보고 ahk_class #32770") and chk2 {
+            login_hwnd := WinExist("작업완료보고 ahk_class #32770")
+            if login_hwnd and chk2 {
+                cUIA := UIA.ElementFromHandle(login_hwnd)
+                cUIA.FindElement({AutomationId:"1004"}).value := uID
+                cUIA.FindElement({AutomationId:"1005"}).value := uPW
+                cUIA.FindElement({AutomationId:"1"}).Invoke()
                 Sleep 250
-                ControlSend "{Ctrl down}a{Ctrl up}", "Edit1", "작업완료보고"
-                Sleep 250
-                ControlSend uID, "Edit1", "작업완료보고"
-                Sleep 250
-                ControlSend "{Raw}" . uPW, "Edit2", "작업완료보고"
-                Sleep 500
-                ControlSend "{Left}{Enter}", "Edit2", "작업완료보고"
                 chk2 := false
             }
 
@@ -305,14 +303,14 @@ class ERP점검 {
                 WinActivate("작업완료보고")
                 sleep 100
                 send "{end}"
-                if A_Index > 20 {
-                    MsgBox("시간초과로 종료합니다 - 오더 진입실패" getPos, "타임아웃", "iconx")
+                if A_Index > 30 {
+                    MsgBox("타임아웃 - 작업보고 진입실패`n프로그램이 종료됩니다" getPos, "오류", "iconx")
                     ExitApp
                 }
                 sleep 150
                 GetCaretPos(&cx, &cy, &cw, &ch)
                 nowColor := PixelGetColor(cx + 5, cy + 5)
-                getPos .= "`n" cx ", " cy " => " PixelGetColor(cx + 5, cy + 5)
+                getPos := "`n좌표 " cx ", " cy " => 색상 : " PixelGetColor(cx + 5, cy + 5)
             }
             CoordMode "Pixel", "Client"
             sleep 500
@@ -432,7 +430,7 @@ class ERP점검 {
         ; 비동기(Non-blocking) 실행: 외부 프로세스에 위임
         ; -s: Silent, -o: Output file, -L: Follow redirects (GAS 필수)
         ; curl이 없으면 실패하겠지만 Windows 10/11은 기본 내장됨
-        cmd := 'curl.exe -sL "' . url . '" -o "' . tempFile . '"'
+        cmd := 'curl.exe -skL "' . url . '" -o "' . tempFile . '"'
 
         try {
             Run cmd, , "Hide"
@@ -563,7 +561,7 @@ GetCaretPos(&X, &Y, &W, &H) {
         	but in reality is not. The only downside to using GetSelections is that when text
         	is selected then caret position is ambiguous. Nevertheless, in those cases it most
         	likely doesn't matter much whether the caret is in the beginning or end of the selection.
-        
+
         	If GetCaretRange is needed then the following code implements that:
         	ComCall(16, FocusedEl, "int", 10024, "ptr*", &patternObject:=0), ObjRelease(FocusedEl) ; GetCurrentPattern. TextPattern2 = 10024
         	if patternObject {

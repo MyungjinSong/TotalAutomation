@@ -1,5 +1,3 @@
-#Requires AutoHotkey v2.0
-#Include "Lib\JSON.ahk"
 
 class ConfigManager {
     static ConfigPath := A_ScriptDir "\config.json"

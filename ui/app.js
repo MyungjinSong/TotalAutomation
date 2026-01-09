@@ -4,13 +4,14 @@
 let appConfig = {};
 let selectedUserId = null;
 let loginUsers = []; // Store user data for login validation
-let isDailyLogInitialized = false; // Flag for persistence
+let isWorkLogInitialized = false; // Flag for persistence
 let pendingRestoreState = null; // State waiting for config load
+let currentSafetyEduData = {}; // [New] Store for Safety Edu Presets
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     // Initial Nav Setup
-    switchMainTab('view-daily-log');
+    switchMainTab('view-work-log');
 
     // Manual Window Drag Handler
     const titleBar = document.getElementById('title-bar');
@@ -49,11 +50,38 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // [New] Auto-formatting for Time and Phone inputs
+    const phoneInputs = ['ta-driver-phone', 'ta-worker-phone', 'ta-safety-phone'];
+    const timeInputs = ['ta-work-start', 'ta-work-end', 'ta-op-start', 'ta-op-end', 'vl-start-time', 'vl-end-time'];
+
+    phoneInputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', (e) => formatPhone(e.target));
+    });
+
+    timeInputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', (e) => formatTime(e.target));
+    });
+
     // ERP Check Order Number Restriction (Dynamic elements handled elsewhere or if static)
     // Assuming adding a global delegation or checking specific view load in future if needed.
     // For now, let's look for specific ID if it exists? 
     // The user mentioned "ERP Check tab order number", but that might be dynamically generated.
     // I will add a helper for it.
+
+    // [UX] Enter Key Handler for User Selection View
+    document.addEventListener('keydown', (e) => {
+        const loginView = document.getElementById('login-view');
+        // Check if Login View is visible (offsetParent is null if display:none or parent is hidden)
+        if (e.key === 'Enter' && loginView && loginView.offsetParent !== null) {
+            // Only proceed if a user is actually selected
+            if (selectedUserId) {
+                e.preventDefault(); // Prevent double triggers if button is focused
+                moveToPasswordView();
+            }
+        }
+    });
 });
 
 function checkAutoLogin(inputPw) {
@@ -104,16 +132,19 @@ function handleAhkMessage(msg) {
         case 'loginFail':
             showNativeMsgBox(msg.message, "로그인 실패");
             break;
+        case 'updateShiftStatus':
+            updateShiftUI(msg.data);
+            break;
         case 'loadConfig':
             appConfig = msg.data;
             initPresets(); // Initialize Presets for Track/Vehicle Views
             if (document.getElementById('settings-view').style.display !== 'none') {
                 loadSettingsToUI();
             }
-            // Initialize Daily Log IF logged in and not yet done (Fix for Race Condition)
-            if (selectedUserId && !isDailyLogInitialized) {
-                renderDailyLogUI();
-                isDailyLogInitialized = true;
+            // Initialize Work Log IF logged in and not yet done (Fix for Race Condition)
+            if (selectedUserId && !isWorkLogInitialized) {
+                renderWorkLogUI();
+                isWorkLogInitialized = true;
             }
 
             // Apply pending restore if exists (Race Condition Fix)
@@ -134,7 +165,7 @@ function handleAhkMessage(msg) {
             sendMessageToAHK({ command: 'saveUiState', data: state });
             break;
         case 'restoreUiState':
-            if (isDailyLogInitialized) {
+            if (isWorkLogInitialized) {
                 restoreUiStateData(msg.data);
             } else {
                 pendingRestoreState = msg.data;
@@ -142,6 +173,15 @@ function handleAhkMessage(msg) {
             break;
         case 'updateERPStatus':
             handleERPStatusUpdate(msg.status);
+            break;
+        case 'approvalInfo':
+            if (msg.data) {
+                setVal('vl-approve-no', msg.data.승인번호);
+                setVal('vl-dept', msg.data.승인부서);
+                setVal('vl-approver', msg.data.승인자);
+            } else {
+                showNativeMsgBox("승인정보를 불러오지 못했습니다.");
+            }
             break;
     }
 }
@@ -312,10 +352,10 @@ function switchMainTab(viewId) {
             }
         }
         renderERPCheck();
-    } else if (viewId === 'view-daily-log') {
+    } else if (viewId === 'view-work-log') {
         // Only render if NOT initialized yet (Persistence Fix)
-        if (!isDailyLogInitialized) {
-            renderDailyLogUI();
+        if (!isWorkLogInitialized) {
+            renderWorkLogUI();
         }
     }
 }
@@ -572,12 +612,12 @@ function handleLoginSuccess(profile) {
     // Request full config
     sendMessageToAHK({ command: 'requestConfig' });
 
-    // Auto-init Daily Log View (Work Type Auto-selection)
+    // Auto-init Work Log View (Work Type Auto-selection)
     // Wait for Config Load (Race Condition Fix)
-    // renderDailyLogUI(); // Removed here, moved to loadConfig
-    isDailyLogInitialized = false; // Add this line to ensure reset
+    // renderWorkLogUI(); // Removed here, moved to loadConfig
+    isWorkLogInitialized = false; // Add this line to ensure reset
 
-    switchMainTab('view-daily-log');
+    switchMainTab('view-work-log');
 }
 
 function deleteUser() {
@@ -663,13 +703,6 @@ function loadSettingsToUI() {
     // DEBUG: Trace Data
     // showNativeMsgBox("UI Load for " + uid + " | Workers: " + appConfig.appSettings?.colleagues?.length, "Debug");
 
-    // Attach AutoSave to User Info inputs
-    ['user-dept', 'user-team', 'user-webpw', 'user-pw2', 'user-sappw'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.oninput = autoSaveSettings;
-        if (el && el.tagName === 'SELECT') el.onchange = autoSaveSettings;
-    });
-
     // Workers (Global from appSettings)
     const wBody = document.querySelector('#worker-table tbody');
     wBody.innerHTML = '';
@@ -688,9 +721,96 @@ function loadSettingsToUI() {
     const hotkeys = user.hotkeys || [];
     renderHotkeyTable(hotkeys);
 
-    // Presets
-    renderPresetList(user.presets || {});
+    // Presets (Track Access)
+    try {
+        renderPresetList(user.presets || {});
+    } catch (e) { console.error("Error rendering presets:", e); }
 
+    // --- NEW: Load Daily Log Defaults ---
+    const defaults = user.dailyLogDefaults || {};
+
+    // 1. Safety Management (Wrapped)
+    try {
+        if (defaults.safety) {
+            defaults.safety.forEach((safe, idx) => {
+                setVal(`fps-safe${idx + 1}-content`, safe.content);
+                setVal(`fps-safe${idx + 1}-start`, safe.start);
+                setVal(`fps-safe${idx + 1}-end`, safe.end);
+            });
+        }
+    } catch (e) { console.error("Error loading Safety defaults:", e); }
+
+    // 2. Driver Fitness Check & Others (Wrapped)
+    try {
+        const drvToggle = document.getElementById('fps-driver-check-toggle');
+        if (drvToggle) drvToggle.checked = !!defaults.driverCheck;
+
+        // 3. General Work Table
+        const gwBody = document.querySelector('#general-work-table tbody');
+        if (gwBody) {
+            gwBody.innerHTML = '';
+            const gwData = defaults.generalWork || [];
+            gwData.forEach(row => addGeneralWorkRow(row));
+        }
+
+        // 4. Auto Input Reservation
+        setVal('fps-auto-input-time', defaults.autoInputTime);
+    } catch (e) { console.error("Error loading General/Driver defaults:", e); }
+
+    // 5. Safety Education (Wrapped in Try-Catch)
+    try {
+        const safeEdu = defaults.safetyEdu || {};
+        // Ensure keys
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        days.forEach(d => {
+            if (!safeEdu[d]) safeEdu[d] = "";
+        });
+        currentSafetyEduData = JSON.parse(JSON.stringify(safeEdu));
+
+        const ddlSafeEdu = document.getElementById('fps-safe-edu-day');
+        if (ddlSafeEdu) {
+            ddlSafeEdu.value = 'Mon'; // Reset to Mon
+            // Initial UI Update
+            handleSafetyEduDayChange();
+        }
+    } catch (e) {
+        console.error("Error loading Safety Edu defaults:", e);
+    }
+
+    // 6. Setup Global AutoSave Delegate
+    setupGlobalAutoSaveDelegate();
+}
+function setupGlobalAutoSaveDelegate() {
+    const settingsView = document.getElementById('settings-view');
+    if (!settingsView || settingsView.dataset.delegateAttached) return;
+
+    const handleEvent = (e) => {
+        const target = e.target;
+        // Filter for inputs, selects, textareas
+        if (!target.matches('input, select, textarea')) return;
+
+        // --- SPECIFIC HANDLERS (Delegated) ---
+
+        // 1. Safety Education
+        if (target.id === 'fps-safe-edu-day') {
+            handleSafetyEduDayChange();
+            return; // Do NOT autosave on day switch alone, wait for content
+        }
+        if (target.id === 'fps-safe-edu-content') {
+            handleSafetyEduContentChange();
+            return; // handleSafetyEduContentChange already calls autoSaveSettings
+        }
+
+        // --- GENERIC AUTOSAVE ---
+        // For all other fields, trigger auto-save
+        autoSaveSettings();
+    };
+
+    settingsView.addEventListener('input', handleEvent);
+    settingsView.addEventListener('change', handleEvent);
+
+    settingsView.dataset.delegateAttached = "true";
+    console.log("Global Settings Auto-Save Delegate Attached");
 }
 
 function saveSettings() {
@@ -778,6 +898,40 @@ function saveSettings() {
             newHotkeys.push({ action, key, desc, enabled });
         });
         user.hotkeys = newHotkeys;
+
+        // --- NEW: Gather Daily Log Defaults ---
+        const dailyLogDefaults = {
+            safety: [],
+            driverCheck: document.getElementById('fps-driver-check-toggle') ? document.getElementById('fps-driver-check-toggle').checked : false,
+            generalWork: [],
+            safetyEdu: currentSafetyEduData, // [New]
+            autoInputTime: getVal('fps-auto-input-time')
+        };
+
+        // 1. Safety (4 Sets)
+        for (let i = 1; i <= 4; i++) {
+            dailyLogDefaults.safety.push({
+                content: getVal(`fps-safe${i}-content`),
+                start: getVal(`fps-safe${i}-start`),
+                end: getVal(`fps-safe${i}-end`)
+            });
+        }
+
+        // 3. General Work
+        document.querySelectorAll('#general-work-table tbody tr').forEach(row => {
+            const selects = row.querySelectorAll('select');
+            const inputs = row.querySelectorAll('input');
+            dailyLogDefaults.generalWork.push({
+                workType: selects[0].value,
+                category: selects[1].value,
+                content: inputs[0].value,
+                manager: inputs[1].value,
+                start: inputs[2].value,
+                end: inputs[3].value
+            });
+        });
+
+        user.dailyLogDefaults = dailyLogDefaults;
 
         sendMessageToAHK({ command: 'saveConfig', data: appConfig });
     } catch (e) {
@@ -951,7 +1105,8 @@ function renderKeycap(keyStr) {
 
 // --- Preset Logic ---
 function renderPresetList(presetsMap) {
-    const sel = document.getElementById('preset-selector');
+    const sel = document.getElementById('track-preset-sel'); // Fixed ID
+    if (!sel) return; // Guard against missing element
     sel.innerHTML = '<option value="">(새 프리셋)</option>';
     if (!presetsMap) return;
 
@@ -1002,6 +1157,25 @@ function formatPhone(input) {
     if (formatted.length > 13) formatted = formatted.substr(0, 13);
 
     input.value = formatted;
+
+    // Auto Save is handled by global delegate on 'input' event
+}
+
+function formatTime(input) {
+    let value = input.value.replace(/[^0-9]/g, '');
+    // Safety cut for HHmm (4 digits)
+    if (value.length > 4) value = value.substr(0, 4);
+
+    let formatted = '';
+    if (value.length < 3) {
+        formatted = value;
+    } else {
+        // HH:mm
+        formatted = value.substr(0, 2) + ':' + value.substr(2);
+    }
+    input.value = formatted;
+
+    // Auto Save is handled by global delegate on 'input' event
 }
 
 // --- ERP Check Logic ---
@@ -1145,8 +1319,8 @@ function runERPTask() {
 
 
 
-// --- Daily Log Logic ---
-function renderDailyLogUI() {
+// --- Work Log Logic ---
+function renderWorkLogUI() {
     const uid = selectedUserId;
     if (!uid || !appConfig.users || !appConfig.users[uid]) return;
 
@@ -1157,31 +1331,23 @@ function renderDailyLogUI() {
     const minutes = now.getMinutes();
     const timeVal = hours * 100 + minutes;
 
-    // Logic: Day if Mon-Fri (1-5) AND 08:30 <= Time < 17:30
-    let isDay = false;
-    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        if (timeVal >= 830 && timeVal < 1730) {
-            isDay = true;
-        }
-    }
+    // Logic: Day if Mon-Fri (1-5) AND 08:30 <= Time < 17:30 [Legacy - Removed]
+    // Now handled entirely by updateShiftUI logic via AHK broadcast.
 
-    // Set Radio Button
-    const radioDay = document.querySelector('input[name="work-type"][value="day"]');
-    const radioNight = document.querySelector('input[name="work-type"][value="night"]');
-    if (isDay) {
-        radioDay.checked = true;
-    } else {
-        radioNight.checked = true;
-    }
+    // 2. Render Worker List (Must be before handleWorkTypeChange for uncheck logic to work)
+    renderWorkLogWorkerList();
 
-    // Apply Automation Options based on Work Type
+    // 3. Apply Automation Options based on Work Type
     handleWorkTypeChange(false); // Validates and sets checkboxes
 
-    // 2. Render Worker List
-    // 2. Render Worker List
-    renderDailyWorkerList();
+    // 3. Initialize Safety Log Dates (Legacy Logic: -510 mins for Day shift boundary)
+    const adjDate = new Date(Date.now() - 510 * 60000);
+    const yyyy = adjDate.getFullYear();
+    const mm = String(adjDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(adjDate.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}${mm}${dd}`;
 
-    isDailyLogInitialized = true;
+    isWorkLogInitialized = true;
 }
 
 function handleWorkTypeChange(skipRenderWorkers = true) {
@@ -1224,6 +1390,14 @@ function handleWorkTypeChange(skipRenderWorkers = true) {
         chkDrink.checked = false;
         chkCal.disabled = true;
         chkCal.checked = false;
+
+        // [New] 야간 근무 시 일근자 체크 해제
+        uncheckDayShiftWorkers();
+    }
+
+    // [New] 주간 모드로 변경 시 -> 체크 복구
+    if (isDay) {
+        checkDayShiftWorkers();
     }
 
     enableDriverSelects(!isDay);
@@ -1247,6 +1421,56 @@ function handleWorkTypeChange(skipRenderWorkers = true) {
         }
     });
 
+    // --- [New] Apply Safety Management Presets & Dates ---
+    if (typeof appConfig !== 'undefined' && appConfig.users && typeof selectedUserId !== 'undefined' && appConfig.users[selectedUserId]) {
+        const user = appConfig.users[selectedUserId];
+        const defaults = user.dailyLogDefaults || {};
+        const safetyPresets = defaults.safety || []; // Array of 4 items
+
+        // Date Calculation
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}${mm}${dd}`;
+
+        const tmr = new Date(now);
+        tmr.setDate(tmr.getDate() + 1);
+        const t_yyyy = tmr.getFullYear();
+        const t_mm = String(tmr.getMonth() + 1).padStart(2, '0');
+        const t_dd = String(tmr.getDate()).padStart(2, '0');
+        const tomorrowStr = `${t_yyyy}${t_mm}${t_dd}`;
+
+        // Select Presets based on Mode
+        // Day: idx 0 (Morning), idx 1 (Afternoon)
+        // Night: idx 2 (Evening), idx 3 (Dawn)
+        let p1, p2;
+        let d1, d2;
+
+        if (isDay) {
+            p1 = safetyPresets[0] || {};
+            p2 = safetyPresets[1] || {};
+            d1 = todayStr;
+            d2 = todayStr;
+        } else {
+            p1 = safetyPresets[2] || {};
+            p2 = safetyPresets[3] || {};
+            d1 = todayStr;
+            d2 = tomorrowStr; // Dawn is next day
+        }
+
+        // Apply to Row 1
+        setVal('safe-content-1', p1.content || '');
+        setVal('safe-start-1', p1.start || '');
+        setVal('safe-end-1', p1.end || '');
+        setVal('safe-date-1', d1);
+
+        // Apply to Row 2
+        setVal('safe-content-2', p2.content || '');
+        setVal('safe-start-2', p2.start || '');
+        setVal('safe-end-2', p2.end || '');
+        setVal('safe-date-2', d2);
+    }
 }
 
 function toggleDrinkCalibration() {
@@ -1260,8 +1484,8 @@ function toggleDrinkCalibration() {
     }
 }
 
-function renderDailyWorkerList() {
-    const container = document.getElementById('daily-worker-list');
+function renderWorkLogWorkerList() {
+    const container = document.getElementById('work-log-worker-list');
     container.innerHTML = '';
     // const countSpan = document.getElementById('worker-count'); // Removed
 
@@ -1291,6 +1515,7 @@ function renderDailyWorkerList() {
         const row = document.createElement('div');
         row.className = 'worker-row';
         row.dataset.id = worker.id;
+        row.dataset.team = worker.team; // [중요] 근무조 데이터셋 추가
         row.dataset.name = worker.name;
 
         // Default Checked logic: Select All by default
@@ -1353,7 +1578,7 @@ function enableDriverSelects(enable) {
 }
 
 function toggleAllWorkers(mainChk) {
-    const chks = document.querySelectorAll('#daily-worker-list .w-chk');
+    const chks = document.querySelectorAll('#work-log-worker-list .w-chk');
     chks.forEach(c => c.checked = mainChk.checked);
     updateWorkerStats();
 }
@@ -1362,7 +1587,7 @@ function updateWorkerStats() {
     // Placeholder for stats logic
 }
 
-function startDailyLog() {
+function startWorkLog() {
     const uid = selectedUserId;
     if (!uid) return;
 
@@ -1374,7 +1599,20 @@ function startDailyLog() {
         general: document.getElementById('chk-general').checked,
         safe: document.getElementById('chk-safe-manage').checked,
         driving: document.getElementById('chk-driving').checked,
+        driving: document.getElementById('chk-driving').checked,
         drink: document.getElementById('chk-drink').checked
+    };
+
+    // Gather Safety Data
+    const safetyData = {
+        content1: getVal('safe-content-1'),
+        date1: getVal('safe-date-1'),
+        start1: getVal('safe-start-1'),
+        end1: getVal('safe-end-1'),
+        content2: getVal('safe-content-2'),
+        date2: getVal('safe-date-2'),
+        start2: getVal('safe-start-2'),
+        end2: getVal('safe-end-2')
     };
 
     // Gather Workers
@@ -1395,10 +1633,11 @@ function startDailyLog() {
 
     const payload = {
         command: 'runTask',
-        task: 'DailyLog',
+        task: 'createWorkLog',
         data: {
             workType,
             options,
+            safetyData,
             workers
         }
     };
@@ -1409,6 +1648,38 @@ function startDailyLog() {
 // Global Exports
 window.switchMainTab = switchMainTab;
 window.runTask = function (task) { sendMessageToAHK({ command: 'runTask', task: task }); };
+
+// --- Safety Education Logic ---
+function handleSafetyEduDayChange() {
+    const ddl = document.getElementById('fps-safe-edu-day');
+    const inp = document.getElementById('fps-safe-edu-content');
+    if (!ddl || !inp) return;
+
+    const day = ddl.value;
+    if (currentSafetyEduData && currentSafetyEduData[day] !== undefined) {
+        inp.value = currentSafetyEduData[day];
+    } else {
+        inp.value = '';
+    }
+}
+// Removed window exports for handleSafety, attached internally
+
+function handleSafetyEduContentChange() {
+    const ddl = document.getElementById('fps-safe-edu-day');
+    const inp = document.getElementById('fps-safe-edu-content');
+    if (!ddl || !inp) return;
+
+    const day = ddl.value;
+    const val = inp.value;
+
+    if (!currentSafetyEduData) currentSafetyEduData = {};
+    currentSafetyEduData[day] = val;
+    // Debounce is handled inside autoSaveSettings, but here we need to ensure the data is ready
+    autoSaveSettings();
+}
+// Removed window exports for handleSafety, attached internally
+window.handleSafetyEduContentChange = handleSafetyEduContentChange; // Expose for inline handlers if any
+window.handleSafetyEduDayChange = handleSafetyEduDayChange; // Expose for inline handlers if any
 window.openSettings = openSettings;
 window.closeSettings = closeSettings;
 window.switchSettingsTab = switchSettingsTab;
@@ -1425,7 +1696,97 @@ window.autoSaveSettings = autoSaveSettings;
 window.handleManagerCheck = handleManagerCheck;
 window.handleDriverChange = handleDriverChange;
 
-// Daily Log Exports
+// --- Shift Status UI Update ---
+function updateShiftUI(shiftData) {
+    const panel = document.getElementById('shift-status-panel');
+    if (!panel) return;
+
+    panel.style.display = 'block';
+
+    document.getElementById('shift-prev').textContent = shiftData.prev;
+    document.getElementById('shift-current').textContent = shiftData.current;
+    document.getElementById('shift-next').textContent = shiftData.next;
+
+    // 주간/야간 텍스트 및 스타일
+    const label = document.getElementById('shift-label-text');
+    label.textContent = shiftData.shiftName; // "주간" or "야간"
+
+    // 색상 등 시각적 구분
+    if (shiftData.isNight) {
+        label.style.color = '#5e6c84'; // Blue-ish gray
+
+        // 야간: Prev, Next 위에 날짜 표시
+        document.getElementById('shift-prev-date').textContent = shiftData.prevDate;
+        document.getElementById('shift-current-date').textContent = "";
+        document.getElementById('shift-next-date').textContent = shiftData.nextDate;
+
+    } else {
+        label.style.color = '#d97008'; // Orange-ish for Day
+
+        // 주간: Current 위에 날짜 표시
+        document.getElementById('shift-prev-date').textContent = "";
+        document.getElementById('shift-current-date').textContent = shiftData.currDate;
+        document.getElementById('shift-next-date').textContent = "";
+    }
+
+    // [New] Sync Work Log Radio Buttons
+    const radioVal = shiftData.isNight ? 'night' : 'day';
+    const radio = document.querySelector(`input[name="work-type"][value="${radioVal}"]`);
+    if (radio && !radio.checked) {
+        radio.checked = true;
+
+        // Trigger UI update (refresh worker list, etc.)
+        if (typeof handleWorkTypeChange === 'function') {
+            handleWorkTypeChange();
+        }
+    }
+}
+
+
+function uncheckDayShiftWorkers() {
+    const listContainer = document.getElementById('work-log-worker-list');
+    if (!listContainer) return;
+
+    // dataset.team = "일근" 인 항목 체크 해제 및 상태 저장
+    const rows = listContainer.querySelectorAll('.worker-row');
+    rows.forEach(row => {
+        if (row.dataset.team === '일근') {
+            const chk = row.querySelector('.w-chk');
+            if (chk && chk.checked) {
+                row.dataset.wasChecked = "true"; // 상태 저장
+                chk.checked = false;
+
+                const drv = row.querySelector('.w-drive');
+                if (drv) drv.value = '';
+                updateWorkerStats();
+            }
+        }
+    });
+}
+
+function checkDayShiftWorkers() {
+    const listContainer = document.getElementById('work-log-worker-list');
+    if (!listContainer) return;
+
+    const rows = listContainer.querySelectorAll('.worker-row');
+    rows.forEach(row => {
+        if (row.dataset.team === '일근') {
+            const chk = row.querySelector('.w-chk');
+            // 이전에 체크되어 있었던 경우만 복구 (또는 기본적으로 모두 체크)
+            if (chk && !chk.checked) {
+                // 복구: 이전에 자동 해제되었거나(wasChecked), 명시적 해제 기록이 없는 경우
+                if (row.dataset.wasChecked === "true" || !row.hasAttribute('data-was-checked')) {
+                    chk.checked = true;
+                }
+            }
+        }
+    });
+
+    updateWorkerStats();
+}
+
+
+// Work Log Exports
 // --- ERP Worker Modal Logic ---
 
 let erpModalWorkerList = []; // Cache list
@@ -1634,7 +1995,7 @@ window.submitERPTask = submitERPTask;
 window.handleWorkTypeChange = handleWorkTypeChange;
 window.toggleAllWorkers = toggleAllWorkers;
 window.updateToggleStyle = updateToggleStyle;
-window.startDailyLog = startDailyLog;
+window.startWorkLog = startWorkLog;
 window.toggleDrinkCalibration = toggleDrinkCalibration;
 
 // --- Helper: Preset Management ---
@@ -1665,9 +2026,11 @@ function renderPresetOptions(selectId, presets) {
     // Keep selection if possible
     const currentVal = sel.value;
 
-    sel.innerHTML = '<option value="">프리셋 선택...</option>';
+    // Clear existing options
+    sel.innerHTML = '';
 
-    Object.keys(presets).forEach(key => {
+    const keys = Object.keys(presets);
+    keys.forEach(key => {
         const opt = document.createElement('option');
         opt.value = key;
         opt.text = key;
@@ -1682,8 +2045,20 @@ function renderPresetOptions(selectId, presets) {
     newOpt.style.color = "#0063B5";
     sel.appendChild(newOpt);
 
-    if (presets[currentVal] || currentVal === '__NEW__') sel.value = currentVal;
-    if (!currentVal && Object.keys(presets).length > 0) sel.value = ""; // Default empty
+    // Determines Selection
+    if (currentVal && (presets[currentVal] || currentVal === '__NEW__')) {
+        sel.value = currentVal;
+    } else if (keys.length > 0) {
+        // Init: Select First Preset
+        sel.value = keys[0];
+        // Trigger Change Event to Load Data
+        sel.dispatchEvent(new Event('change'));
+    } else {
+        // Init: No Presets -> Select New
+        sel.value = "__NEW__";
+        // Trigger Change Event to Clear/Init Form
+        sel.dispatchEvent(new Event('change'));
+    }
 }
 
 // --- Track Access Logic ---
@@ -1703,6 +2078,7 @@ function loadTrackPreset() {
         setVal('ta-worker-phone', '');
         setVal('ta-safety-name', '');
         setVal('ta-safety-phone', '');
+        setVal('ta-supervisor-name', '');
         setVal('ta-supervisor-id', '');
 
         setVal('ta-work-start', '');
@@ -1734,6 +2110,7 @@ function loadTrackPreset() {
         setVal('ta-worker-phone', data.workerPhone);
         setVal('ta-safety-name', data.safetyName);
         setVal('ta-safety-phone', data.safetyPhone);
+        setVal('ta-supervisor-name', data.supervisorName);
         setVal('ta-supervisor-id', data.supervisorId);
 
         setVal('ta-work-start', data.workStart);
@@ -1771,6 +2148,7 @@ function saveTrackPreset() {
         workerPhone: getVal('ta-worker-phone'),
         safetyName: getVal('ta-safety-name'),
         safetyPhone: getVal('ta-safety-phone'),
+        supervisorName: getVal('ta-supervisor-name'),
         supervisorId: getVal('ta-supervisor-id'),
 
         workStart: getVal('ta-work-start'),
@@ -1835,7 +2213,28 @@ function deleteTrackPreset() {
     saveUserPresets('track', presets);
 
     renderPresetOptions('track-preset-sel', presets);
-    sel.value = "";
+
+    // Auto-select logic is handled inside renderPresetOptions if we pass nothing, 
+    // BUT renderPresetOptions expects to respect currentVal if passed.
+    // Since we deleted the key, we should let it default.
+    // However, our renderPresetOptions helper tries to keep selection.
+    // Let's manually trigger the logic again.
+
+    // Quick Fix: renderPresetOptions handles init logic if we don't set value explicitly?
+    // Actually, renderPresetOptions uses 'sel.value' to determine previous value.
+    // We should clear it before calling? No, it reads it.
+
+    // Correct approach using our new robust renderPresetOptions:
+    // 1. Value is still the deleted key technically before we re-render? No, we re-render options.
+    // Actually, let's just trigger the 'change' event on the first item if exists.
+
+    const newKeys = Object.keys(presets);
+    if (newKeys.length > 0) {
+        sel.value = newKeys[0];
+    } else {
+        sel.value = "__NEW__";
+    }
+    sel.dispatchEvent(new Event('change'));
 }
 
 function runTrackAccessTask() {
@@ -1850,6 +2249,7 @@ function runTrackAccessTask() {
         workerPhone: getVal('ta-worker-phone'),
         safetyName: getVal('ta-safety-name'),
         safetyPhone: getVal('ta-safety-phone'),
+        supervisorName: getVal('ta-supervisor-name'),
         supervisorId: getVal('ta-supervisor-id'),
 
         workStart: getVal('ta-work-start'),
@@ -1988,7 +2388,15 @@ function deleteVehiclePreset() {
     saveUserPresets('vehicle', presets);
 
     renderPresetOptions('vehicle-preset-sel', presets);
-    sel.value = "";
+
+    // Auto-select logic
+    const newKeys = Object.keys(presets);
+    if (newKeys.length > 0) {
+        sel.value = newKeys[0];
+    } else {
+        sel.value = "__NEW__";
+    }
+    sel.dispatchEvent(new Event('change'));
 }
 
 function runVehicleLogTask() {
@@ -2013,7 +2421,16 @@ function runVehicleLogTask() {
 
 // Execute 'runBringApproved' command
 function runBringApproved() {
-    sendMessageToAHK({ command: 'runTask', task: 'runBringApproved' });
+    const driver = getVal('vl-driver');
+    if (!driver) {
+        showNativeMsgBox("운전자를 입력해주세요.");
+        return;
+    }
+    sendMessageToAHK({
+        command: 'runTask',
+        task: 'bringApproval',
+        data: { driverName: driver }
+    });
 }
 
 // Helpers
@@ -2049,3 +2466,78 @@ window.renameVehiclePreset = renameVehiclePreset;
 window.deleteVehiclePreset = deleteVehiclePreset;
 window.runVehicleLogTask = runVehicleLogTask;
 window.initPresets = initPresets; // To be called after login/load
+
+// --- Daily Log Preset & Track Access Helpers ---
+
+function loadPresetDetail() {
+    const sel = document.getElementById('track-preset-sel'); // Fixed ID
+    const key = sel.value;
+
+    // This function is bound to the Track Access Preset selector in the Preset Tab.
+    // It should load the Track Access preset details into the "ps-name" and "ps-work" fields
+    // which seem to be intended for Quick Viewing/Editing of Track Access presets?
+    // Or maybe the user INTENDED this selector to load the Daily Log defaults?
+    // Based on "일지프리셋(Preset) 탭", and the fact that we have a separate "Daily Log Defaults" section...
+    // I will assume this selector controls the "Track Access Presets" section at the top.
+
+    if (!key) return;
+
+    // If it's the "New Preset" option
+    // (We don't have logic for it in the settings tab selector usually, but let's handle it)
+
+    const presets = getUserPresets('track');
+    const data = presets[key]; // Might be undefined if new
+
+    if (data) {
+        setVal('ps-name', key); // Name is the key
+        setVal('ps-work', data.content); // "Work Content" from Track Access
+    } else {
+        setVal('ps-name', '');
+        setVal('ps-work', '');
+    }
+}
+
+function addGeneralWorkRow(data = {}) {
+    const tbody = document.querySelector('#general-work-table tbody');
+    const rowData = Object.keys(data).length > 0 ? data : {
+        workType: '주간',
+        category: '전체',
+        content: '',
+        manager: '',
+        start: '',
+        end: ''
+    };
+
+    const tr = document.createElement('tr');
+
+    // Options
+    const workTypes = ['주간', '야간'];
+    const categories = ['전체', '내부업무', '점검업무', '유지보수', '협조사항'];
+
+    const workOpts = workTypes.map(t => `<option value='${t}' ${rowData.workType === t ? 'selected' : ''}>${t}</option>`).join('');
+    const catOpts = categories.map(c => `<option value='${c}' ${rowData.category === c ? 'selected' : ''}>${c}</option>`).join('');
+
+    tr.innerHTML = `
+        <td><select>${workOpts}</select></td>
+        <td><select>${catOpts}</select></td>
+        <td><input type='text' value='${rowData.content || ''}' placeholder='내용'></td>
+        <td><input type='text' value='${rowData.manager || ''}' placeholder='책임자'></td>
+        <td><input type='text' value='${rowData.start || ''}' placeholder='   :   ' maxlength='5' oninput='formatTime(this)' class='time-input'></td>
+        <td><input type='text' value='${rowData.end || ''}' placeholder='   :   ' maxlength='5' oninput='formatTime(this)' class='time-input'></td>
+        <td class='center'><button class='small-btn danger' onclick='this.closest("tr").remove()'>X</button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function saveAutoInputSettings() {
+    const time = document.getElementById('fps-auto-input-time').value;
+    // Just save settings overall
+    saveSettings();
+    showNativeMsgBox(`자동입력 예약시간(${time})이 저장되었습니다.`);
+}
+
+// Global Exports
+window.loadPresetDetail = loadPresetDetail;
+window.addGeneralWorkRow = addGeneralWorkRow;
+window.saveAutoInputSettings = saveAutoInputSettings;
+window.formatTime = formatTime;

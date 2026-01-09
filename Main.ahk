@@ -8,6 +8,9 @@
 #Include "Lib\UIA_Browser.ahk"
 #Include "단축기능.ahk"
 #Include "URL.ahk"
+#Include "선로출입.ahk"
+#Include "차량일지.ahk"
+#Include "업무일지.ahk"
 #Include "ERP점검.ahk"
 
 ; ==============================================================================
@@ -214,6 +217,12 @@ OnWebMessage(sender, args) {
                     jsonResp := JSON.stringify(payload)
                     wv.PostWebMessageAsJson(jsonResp)
 
+                    ; [추가] 근무 조 정보 전송 (복구 시에도 업데이트)
+                    userTeam := profile.Has("team") ? profile["team"] : ""
+                    shiftContext := WorkLogManager.GetCurrentContext(userTeam)
+                    shiftPayload := Map("type", "updateShiftStatus", "data", shiftContext)
+                    wv.PostWebMessageAsJson(JSON.stringify(shiftPayload))
+
                     ; UI 상태 복원 (로그인 복구 후 실행)
                     stateFile := A_ScriptDir "\.restore_state.json"
                     if FileExist(stateFile) {
@@ -248,6 +257,12 @@ OnWebMessage(sender, args) {
 
         jsonResp := JSON.stringify(payload)
         wv.PostWebMessageAsJson(jsonResp)
+
+        ; [추가] 근무 조 정보 전송
+        userTeam := profile.Has("team") ? profile["team"] : ""
+        shiftContext := WorkLogManager.GetCurrentContext(userTeam)
+        shiftPayload := Map("type", "updateShiftStatus", "data", shiftContext)
+        wv.PostWebMessageAsJson(JSON.stringify(shiftPayload))
     }
     ; --- 2. 데이터/설정 관리 ---
     else if (command == "requestConfig") {
@@ -324,8 +339,8 @@ OnWebMessage(sender, args) {
         ; 메인 창 최소화 및 로딩 GUI 표시
         ShowLoadingGUI()
 
-        ; 작업을 비동기식으로 실행 (GUI 스레드 차단 방지)
-        SetTimer(() => RunTaskAsync(taskName, msg), -1)
+        ; 작업을 비동기식으로 실행x 스레드 충돌 허용x
+        RunTaskAsync(taskName, msg)
     }
     else if (command == "stopTask") {
         StopMacro()
@@ -342,6 +357,7 @@ OnWebMessage(sender, args) {
         try {
             whr := ComObject("WinHttp.WinHttpRequest.5.1")
             whr.Open("GET", url, true)
+            whr.Option[4] := 13056
             whr.Send()
             whr.WaitForResponse()
 
@@ -367,6 +383,15 @@ OnWebMessage(sender, args) {
             }
         }
         Reload
+    }
+    ; --- 6. 엑셀 승인 정보 요청 ---
+    else if (command == "req_approval_info") {
+        driverName := msg.Has("driverName") ? msg["driverName"] : ""
+        result := bringApproval(driverName) ; 차량일지.ahk 함수 호출
+
+        ; 결과 전송
+        payload := Map("type", "res_approval_info", "data", result)
+        wv.PostWebMessageAsJson(JSON.stringify(payload))
     }
 }
 
@@ -580,10 +605,7 @@ EndMacro(*) {
 ;   GUI 스레드와 분리되어 실행되도록 SetTimer로 호출되었으나,
 ;   AHK는 단일 스레드 구조이므로 이곳에서 긴 루프나 Blocking 작업을 수행하면 UI 반응이 느려질 수 있습니다.
 ;
-;   [향후 개발 방향성]
-;   1. 모듈화: 각 taskName 별로 별도의 클래스나 함수로 로직을 분리하세요.
-;      예) Tasks.DailyLog.Run(msg), Tasks.ERP.Run(msg)
-;   2. 파라미터 활용: 'msg' 객체에는 UI에서 보낸 모든 파라미터(옵션, 날짜, 타겟 등)가 들어있으므로 이를 적극 활용하세요.
+; 'msg' 객체에는 UI에서 보낸 모든 파라미터(옵션, 날짜, 타겟 등)가 들어있으므로 이를 적극 활용하세요.
 ; ==============================================================================
 RunTaskAsync(taskName, msg) {
 
@@ -606,10 +628,10 @@ RunTaskAsync(taskName, msg) {
         }
     }
 
-    ; 1. 일일 업무일지 생성
-    if (taskName == "DailyLog") {
-        ; [TODO] 실제 업무일지 생성 로직 연결 필요
-        ; 예: DailyLogGenerator.Create(msg["date"], msg["options"])
+    ; 1. 업무일지
+    if (taskName == "createWorkLog") {
+        ; [TODO] 실제 업무일지 로직 연결 필요
+        ; 예: WorkLogGenerator.Create(msg["date"], msg["options"])
 
         temp_gui := gui()
         temp_text := temp_gui.Add("Text", "x50 y50", "5")
@@ -623,30 +645,39 @@ RunTaskAsync(taskName, msg) {
 
         temp_gui.Destroy()
 
-        MsgBox("일일 점검 일지 생성 작업 완료")
+        MsgBox("업무일지 생성 작업 완료")
         StopMacro() ; 작업 완료 후 정리 및 복구
     }
     ; 2. ERP 점검 (변전소/전기실 등)
     else if (taskName == "ERPCheck") {
-        ; [ERP 일일 점검]
-        ; ERP점검.ahk 스크립트로 위임
         ERP점검.Start(msg)
 
         EndMacro()
     }
     ; 3. 선로 출입 일지
     else if (taskName == "TrackAccess") {
-        ; [TODO] 선로출입일지 로직 구현 필요
-        ; UI에서 전달받은 작업자 목록, 장소 등을 처리
+        RunTrackAccess(msg.Has("data") ? msg["data"] : map())
 
-        loop 10 {
-            Sleep 500
+        EndMacro()
+    }
+    ; 4. 차량 운행 일지 (추가)
+    else if (taskName == "VehicleLog") {
+        RunVehicleLog(msg.Has("data") ? msg["data"] : map())
+
+        EndMacro()
+    }
+    ; 4-1. 승인정보 가져오기
+    else if (taskName == "bringApproval") {
+        result := bringApproval(msg.Has("data") ? msg["data"] : map())
+
+        if (result) {
+            payload := Map("type", "approvalInfo", "data", result)
+            wv.PostWebMessageAsJson(JSON.stringify(payload))
         }
 
-        MsgBox("선로 출입 일지 생성 작업 완료")
-        StopMacro()
+        EndMacro()
     }
-    ; 4. 알 수 없는 작업 처리
+    ; 5. 알 수 없는 작업 처리
     else {
         MsgBox("알 수 없는 작업: " taskName)
         StopMacro()

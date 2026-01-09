@@ -1,12 +1,3 @@
-#Requires AutoHotkey v2.0
-#Include "설정관리.ahk"
-#Include "Lib\UIA.ahk"
-
-/*
-    유저로그인.ahk
-    - 단축일지의 로그인/유저등록 로직 이식
-    - 불필요한 안내 문구 제거 및 심플화
-*/
 
 class UserLogin {
     static LoginUser() {

@@ -116,9 +116,9 @@
         <!-- Sidebar -->
         <nav id="sidebar">
             <div class="nav-top">
-                <div class="menu-item active" data-target="view-daily-log" onclick="switchMainTab('view-daily-log')">
+                <div class="menu-item active" data-target="view-work-log" onclick="switchMainTab('view-work-log')">
                     <span class="icon">📅</span>
-                    <span class="label">일지생성</span>
+                    <span class="label">업무일지</span>
                 </div>
                 <div class="menu-item" data-target="view-erp-check" onclick="switchMainTab('view-erp-check')">
                     <span class="icon">📋</span>
@@ -134,6 +134,27 @@
                 </div>
             </div>
             <div class="nav-bottom">
+                <!-- Shift Status Panel -->
+                <div id="shift-status-panel" class="shift-panel" style="display:none;"> <!-- 초기 숨김 -->
+                    <div class="shift-row">
+                        <div class="shift-group">
+                            <div class="shift-date" id="shift-prev-date"></div>
+                            <div class="shift-item prev" id="shift-prev">D</div>
+                        </div>
+                        <div class="shift-arrow">→</div>
+                        <div class="shift-group">
+                            <div class="shift-date" id="shift-current-date"></div>
+                            <div class="shift-item current" id="shift-current">C</div>
+                        </div>
+                        <div class="shift-arrow">→</div>
+                        <div class="shift-group">
+                            <div class="shift-date" id="shift-next-date"></div>
+                            <div class="shift-item next" id="shift-next">B</div>
+                        </div>
+                    </div>
+                    <div class="shift-label" id="shift-label-text">야간</div>
+                </div>
+
                 <div class="menu-item settings-btn" onclick="openSettings()">
                     <span class="icon">⚙️</span>
                     <span class="label">설정</span>
@@ -143,31 +164,35 @@
 
         <!-- Content Area -->
         <main id="content">
-            <!-- Daily Log View -->
-            <div id="view-daily-log" class="view-section active">
-                <h1>일지생성</h1>
-                <div class="daily-log-container">
-                    <div class="daily-log-main">
-                        <!-- Left Column: Controls -->
-                        <div class="left-col">
-                            <div class="control-box">
-                                <label>근무 스케줄</label>
+            <!-- Work Log View (Refactored) -->
+            <div id="view-work-log" class="view-section active">
+                <div class="view-header">
+                    <h1>업무일지</h1>
+                </div>
+
+                <div class="view-content">
+                    <div class="work-log-container">
+                        <div class="work-log-main">
+                            <!-- Left Column: Controls -->
+                            <div class="left-col">
+                                <!-- Section Title -->
+                                <!-- <h3 class="section-title">작업 설정</h3> -->
+
+                                <!-- Work Type Toggle -->
                                 <div class="option-group">
                                     <label class="radio-label">
-                                        <input type="radio" name="work-type" value="day" id="radio-work-type-day"
+                                        <input type="radio" name="work-type" value="day" checked
                                             onchange="handleWorkTypeChange()">
                                         <span>주간</span>
                                     </label>
                                     <label class="radio-label">
-                                        <input type="radio" name="work-type" value="night" id="radio-work-type-night"
+                                        <input type="radio" name="work-type" value="night"
                                             onchange="handleWorkTypeChange()">
                                         <span>야간</span>
                                     </label>
                                 </div>
-                            </div>
 
-                            <div class="control-box expanded-box">
-                                <label>자동화 실행 목록</label>
+                                <!-- Checkbox Group -->
                                 <div class="option-group checkbox-group vertical-group">
                                     <label class="checkbox-label">
                                         <input type="checkbox" id="chk-make-log">
@@ -183,97 +208,151 @@
                                     </label>
                                     <label class="checkbox-label">
                                         <input type="checkbox" id="chk-driving">
-                                        <span>운전적합성 점검표</span>
+                                        <span>운전적합성</span>
                                     </label>
                                 </div>
-                            </div>
 
-                            <div class="control-box">
-                                <label>추가 옵션</label>
+                                <!-- Drink Check -->
                                 <div class="option-group vertical-group">
-                                    <label class="checkbox-label" id="lbl-drink">
+                                    <label class="checkbox-label">
                                         <input type="checkbox" id="chk-drink" onchange="toggleDrinkCalibration()">
                                         <span>주간 음주측정</span>
                                     </label>
-                                    <label class="checkbox-label">
+                                    <label class="checkbox-label" style="margin-left: 20px;">
                                         <input type="checkbox" id="chk-drink-cal" disabled>
-                                        <span>음주측정기 교정</span>
+                                        <span>교정 입고중</span>
                                     </label>
                                 </div>
                             </div>
 
-                        </div>
-
-                        <!-- Right Column: Worker List -->
-                        <div class="right-col">
-                            <div class="control-box" style="height: 100%;">
-                                <label>근무자</label>
-                                <div class="worker-list-wrap"
-                                    style="flex: 1; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; display: flex; flex-direction: column; overflow: hidden;">
+                            <!-- Right Column: Worker List -->
+                            <div class="right-col">
+                                <div class="worker-section">
+                                    <div class="section-header">
+                                        <h3>작업자 명단</h3>
+                                        <!-- Select All Removed -->
+                                    </div>
                                     <div class="worker-list-header">
+                                        <!-- Checkbox Col Removed -->
                                         <div class="wl-name">이름</div>
                                         <div class="wl-note">휴가/비고</div>
                                         <div class="wl-drive hidden-col" id="col-header-drive">운전</div>
                                     </div>
-                                    <div id="daily-worker-list" class="worker-list-body">
+                                    <div id="work-log-worker-list" class="worker-list-body">
                                         <!-- Dynamic Content -->
                                     </div>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Safety Management Section -->
+                        <div class="work-log-safety-section">
+                            <div class="safety-header">
+                                <h3>안전관리</h3>
+                            </div>
+                            <div class="safety-grid">
+                                <!-- Row 1 -->
+                                <div class="safety-row">
+                                    <input type="text" id="safe-content-1" placeholder="안전관리 내용 (오전/저녁)"
+                                        class="safety-input-content">
+                                    <div class="safety-time-group">
+                                        <input type="text" id="safe-date-1" placeholder="YYYYMMDD"
+                                            class="safety-input-date">
+                                        <div class="time-pair">
+                                            <span>시작</span>
+                                            <input type="text" id="safe-start-1" placeholder="hh:mm"
+                                                class="safety-input-time">
+                                        </div>
+                                        <div class="time-pair">
+                                            <span>종료</span>
+                                            <input type="text" id="safe-end-1" placeholder="hh:mm"
+                                                class="safety-input-time">
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Row 2 -->
+                                <div class="safety-row">
+                                    <input type="text" id="safe-content-2" placeholder="안전관리 내용 (오후/새벽)"
+                                        class="safety-input-content">
+                                    <div class="safety-time-group">
+                                        <input type="text" id="safe-date-2" placeholder="YYYYMMDD"
+                                            class="safety-input-date">
+                                        <div class="time-pair">
+                                            <span>시작</span>
+                                            <input type="text" id="safe-start-2" placeholder="hh:mm"
+                                                class="safety-input-time">
+                                        </div>
+                                        <div class="time-pair">
+                                            <span>종료</span>
+                                            <input type="text" id="safe-end-2" placeholder="hh:mm"
+                                                class="safety-input-time">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <!-- Separate Footer for Start Button -->
-                    <div class="daily-log-footer">
-                        <button class="primary-btn large-btn" onclick="startDailyLog()">시작</button>
-                    </div>
+                </div>
+
+                <div class="view-footer">
+                    <button class="primary-btn large-btn" onclick="startWorkLog()">시작</button>
                 </div>
             </div>
 
             <!-- ERP Check View -->
             <div id="view-erp-check" class="view-section">
-                <!-- Compact header if needed or keep h1 but less margin -->
-                <h1>ERP일일점검</h1>
-                <div class="erp-container savable-ui" data-save-key="erpLocation">
-                    <div class="erp-compact-layout">
-                        <!-- Row 1: Substation -->
-                        <div class="erp-row">
-                            <div class="erp-label-col">변전소</div>
-                            <div class="erp-content-col">
-                                <div class="erp-grid-3" id="grid-substation"></div>
-                            </div>
-                        </div>
+                <!-- Header -->
+                <div class="view-header">
+                    <h1>ERP일일점검</h1>
+                </div>
 
-                        <!-- Row 2: Electric Room -->
-                        <div class="erp-row">
-                            <div class="erp-label-col">전기실</div>
-                            <div class="erp-content-col">
-                                <div class="erp-group-container">
-                                    <div class="erp-group-stack">
-                                        <div class="erp-sub-header">그룹 1</div>
-                                        <div class="erp-btn-stack" id="elec-g1"></div>
-                                    </div>
-                                    <div class="erp-group-stack">
-                                        <div class="erp-sub-header">그룹 2</div>
-                                        <div class="erp-btn-stack" id="elec-g2"></div>
-                                    </div>
-                                    <div class="erp-group-stack">
-                                        <div class="erp-sub-header">그룹 3</div>
-                                        <div class="erp-btn-stack" id="elec-g3"></div>
+                <!-- Scrollable Content -->
+                <div class="view-content">
+                    <div class="erp-container savable-ui" data-save-key="erpLocation">
+                        <div class="erp-compact-layout">
+                            <!-- Row 1: Substation -->
+                            <div class="erp-row">
+                                <div class="erp-label-col">변전소</div>
+                                <div class="erp-content-col">
+                                    <div class="erp-grid-3" id="grid-substation"></div>
+                                </div>
+                            </div>
+
+                            <!-- Row 2: Electric Room -->
+                            <div class="erp-row">
+                                <div class="erp-label-col">전기실</div>
+                                <div class="erp-content-col">
+                                    <div class="erp-group-container">
+                                        <div class="erp-group-stack">
+                                            <div class="erp-sub-header">그룹 1</div>
+                                            <div class="erp-btn-stack" id="elec-g1"></div>
+                                        </div>
+                                        <div class="erp-group-stack">
+                                            <div class="erp-sub-header">그룹 2</div>
+                                            <div class="erp-btn-stack" id="elec-g2"></div>
+                                        </div>
+                                        <div class="erp-group-stack">
+                                            <div class="erp-sub-header">그룹 3</div>
+                                            <div class="erp-btn-stack" id="elec-g3"></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Row 3: Etc -->
-                        <div class="erp-row">
-                            <div class="erp-label-col">기타업무</div>
-                            <div class="erp-content-col">
-                                <div class="erp-grid-3" id="grid-etc"></div>
+                            <!-- Row 3: Etc -->
+                            <div class="erp-row">
+                                <div class="erp-label-col">기타업무</div>
+                                <div class="erp-content-col">
+                                    <div class="erp-grid-3" id="grid-etc"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="erp-footer">
+                <!-- Fixed Footer -->
+                <div class="view-footer">
+                    <div class="action-footer">
                         <div class="worker-format-toggle-container">
                             <span class="toggle-label-text" id="lbl-format-summary">대표자 외 0명</span>
                             <label class="toggle-switch">
@@ -293,20 +372,21 @@
 
             <!-- Track Access View -->
             <div id="view-track-access" class="view-section">
-                <div class="header-row">
-                    <h1>선로출입관리</h1>
-                    <div class="preset-controls">
-                        <select id="track-preset-sel" class="preset-select" onchange="loadTrackPreset()"
-                            ondblclick="renameTrackPreset()">
-                            <option value="">프리셋 선택...</option>
-                            <!-- Options will be populated by JS, including 'New Preset' -->
-                        </select>
-                        <button class="secondary-btn small" onclick="saveTrackPreset()">저장</button>
-                        <button class="danger-btn small" onclick="deleteTrackPreset()">삭제</button>
+                <div class="view-header">
+                    <div class="header-row">
+                        <h1>선로출입관리</h1>
+                        <div class="preset-controls">
+                            <select id="track-preset-sel" class="preset-select" onchange="loadTrackPreset()"
+                                ondblclick="renameTrackPreset()">
+                                <!-- Options will be populated by JS, including 'New Preset' -->
+                            </select>
+                            <button class="secondary-btn small" onclick="saveTrackPreset()">저장</button>
+                            <button class="danger-btn small" onclick="deleteTrackPreset()">삭제</button>
+                        </div>
                     </div>
                 </div>
 
-                <div class="form-container">
+                <div class="view-content">
                     <div class="input-grid g-2">
                         <!-- Left Column -->
                         <div class="grid-col">
@@ -358,8 +438,12 @@
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label>감독자 (사번)</label>
-                                <input type="text" id="ta-supervisor-id" placeholder="사번 입력">
+                                <label>감독자</label>
+                                <div class="pair-input">
+                                    <input type="text" id="ta-supervisor-name" placeholder="이름">
+                                    <input type="text" id="ta-supervisor-id" maxlength="6"
+                                        oninput="this.value=this.value.replace(/[^0-9]/g,'');" placeholder="사번">
+                                </div>
                             </div>
                         </div>
 
@@ -439,10 +523,9 @@
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Footer Options -->
-
-
+                <div class="view-footer">
                     <div class="action-footer" style="display:flex; justify-content:space-between; align-items:center;">
                         <div style="margin-right: auto;">
                             <label class="checkbox-label" style="display:flex; align-items:center; gap:8px;">
@@ -458,25 +541,26 @@
 
             <!-- Vehicle Log View -->
             <div id="view-vehicle-log" class="view-section">
-                <div class="header-row">
-                    <h1>차량운행일지</h1>
-                    <div class="preset-controls">
-                        <select id="vehicle-preset-sel" class="preset-select" onchange="loadVehiclePreset()"
-                            ondblclick="renameVehiclePreset()">
-                            <option value="">프리셋 선택...</option>
-                        </select>
-                        <button class="secondary-btn small" onclick="saveVehiclePreset()">저장</button>
-                        <button class="danger-btn small" onclick="deleteVehiclePreset()">삭제</button>
+                <div class="view-header">
+                    <div class="header-row">
+                        <h1>차량운행일지</h1>
+                        <div class="preset-controls">
+                            <select id="vehicle-preset-sel" class="preset-select" onchange="loadVehiclePreset()"
+                                ondblclick="renameVehiclePreset()">
+                            </select>
+                            <button class="secondary-btn small" onclick="saveVehiclePreset()">저장</button>
+                            <button class="danger-btn small" onclick="deleteVehiclePreset()">삭제</button>
+                        </div>
                     </div>
                 </div>
 
-                <div class="form-container">
+                <div class="view-content">
                     <div class="input-grid g-2">
                         <!-- Left Column -->
                         <div class="grid-col">
                             <div class="form-group">
                                 <label>운전자</label>
-                                <input type="text" id="vl-driver">
+                                <input type="text" id="vl-driver" placeholder="이름">
                             </div>
                             <div class="form-group">
                                 <label>작업구간 (시점 ~ 종점)</label>
@@ -501,22 +585,14 @@
                                     <input type="text" id="vl-end-time" placeholder="HH:mm">
                                 </div>
                             </div>
-                            <div class="form-group full-width-col">
-                                <label>내용</label>
-                                <input type="text" id="vl-content">
-                            </div>
-                            <div class="form-group full-width-col">
-                                <label>비고</label>
-                                <input type="text" id="vl-remarks">
-                            </div>
                         </div>
 
                         <!-- Right Column -->
                         <div class="grid-col">
                             <div class="form-group">
-                                <label>승인정보 (번호 / 부서 / 승인자)</label>
+                                <label>승인정보</label>
                                 <div class="input-grid g-3" style="gap:5px;">
-                                    <input type="text" id="vl-approve-no" placeholder="번호">
+                                    <input type="text" id="vl-approve-no" placeholder="승인번호">
                                     <input type="text" id="vl-dept" placeholder="부서">
                                     <input type="text" id="vl-approver" placeholder="승인자">
                                 </div>
@@ -527,16 +603,27 @@
                             </div>
                             <div class="form-group">
                                 <label>가동시간</label>
-                                <input type="text" id="vl-run-time">
+                                <input type="text" id="vl-run-time"
+                                    oninput="this.value=this.value.replace(/[^0-9]/g,'');">
                             </div>
                             <div class="form-group">
                                 <label>적산계</label>
-                                <input type="text" id="vl-distance">
+                                <input type="text" id="vl-distance"
+                                    oninput="this.value=this.value.replace(/[^0-9]/g,'');">
                             </div>
                         </div>
                     </div>
-
-                    <div class="action-footer">
+                    <div class="form-group full-width-col">
+                        <label>내용</label>
+                        <input type="text" id="vl-content">
+                    </div>
+                    <div class="form-group full-width-col">
+                        <label>비고</label>
+                        <input type="text" id="vl-remarks">
+                    </div>
+                </div>
+                <div class="view-footer">
+                    <div class="action-footer" style="justify-content: flex-end;">
                         <button class="primary-btn large-btn" onclick="runVehicleLogTask()">시작</button>
                     </div>
                 </div>
@@ -559,10 +646,10 @@
             <!-- Settings Tabs Sidebar -->
             <div class="settings-sidebar">
                 <div class="tab-item active" onclick="switchSettingsTab('tab-user')">유저정보</div>
+                <div class="tab-item" onclick="switchSettingsTab('tab-preset')">일지프리셋</div>
                 <div class="tab-item" onclick="switchSettingsTab('tab-worker')">작업자</div>
                 <div class="tab-item" onclick="switchSettingsTab('tab-location')">작업장소</div>
                 <div class="tab-item" onclick="switchSettingsTab('tab-hotkey')">단축키</div>
-                <div class="tab-item" onclick="switchSettingsTab('tab-preset')">프리셋</div>
                 <div class="tab-item" onclick="switchSettingsTab('tab-updates')">업데이트 내역</div>
             </div>
 
@@ -571,13 +658,14 @@
                 <!-- Tab 1: User Info -->
                 <div id="tab-user" class="settings-tab-pane active">
                     <h2>내 정보</h2>
-                    <div class="form-group inline-field"><label>이름</label><input type="text" id="user-name" readonly
-                            disabled></div>
-                    <div class="form-group inline-field"><label>사번</label><input type="text" id="user-id" readonly
-                            disabled></div>
-                    <div class="form-group inline-field"><label>분소</label><input type="text" id="user-dept"></div>
-                    <div class="form-group inline-field"><label>근무조</label>
-                        <select id="user-team">
+                    <div class="std-form-row"><label class="std-label fixed-70">이름</label><input type="text"
+                            id="user-name" class="std-input" readonly disabled></div>
+                    <div class="std-form-row"><label class="std-label fixed-70">사번</label><input type="text"
+                            id="user-id" class="std-input" readonly disabled></div>
+                    <div class="std-form-row"><label class="std-label fixed-70">분소</label><input type="text"
+                            id="user-dept" class="std-input"></div>
+                    <div class="std-form-row"><label class="std-label fixed-70">근무조</label>
+                        <select id="user-team" class="std-input">
                             <option>A조</option>
                             <option>B조</option>
                             <option>C조</option>
@@ -587,11 +675,13 @@
                     </div>
                     <hr>
                     <h3>비밀번호 관리</h3>
-                    <div class="form-group inline-field"><label>통합 PW</label><input type="password" id="user-webpw">
+                    <div class="std-form-row"><label class="std-label fixed-70">통합 PW</label><input type="password"
+                            id="user-webpw" class="std-input">
                     </div>
-                    <div class="form-group inline-field"><label>2차 PW</label><input type="password" id="user-pw2"
-                            maxlength="6"></div>
-                    <div class="form-group inline-field"><label>SAP PW</label><input type="password" id="user-sappw">
+                    <div class="std-form-row"><label class="std-label fixed-70">2차 PW</label><input type="password"
+                            id="user-pw2" class="std-input" maxlength="6"></div>
+                    <div class="std-form-row"><label class="std-label fixed-70">SAP PW</label><input type="password"
+                            id="user-sappw" class="std-input">
                     </div>
                 </div>
 
@@ -623,10 +713,9 @@
                 <div id="tab-location" class="settings-tab-pane">
                     <div class="tab-header" style="display:flex; justify-content:space-between; align-items:center;">
                         <h2>ERP점검</h2>
-                        <div style="font-size:14px;">
-                            점검자 표시형식 :
-                            <select id="erp-format-pref" style="margin-left:5px; padding:2px;"
-                                onchange="autoSaveSettings()">
+                        <div style="font-size:14px; display: flex; align-items: center; white-space: nowrap;">
+                            <label style="margin-right:5px;">점검자 표시형식 : </label>
+                            <select id="erp-format-pref" style="padding:2px;">
                                 <option value="summary">대표자 외 N명</option>
                                 <option value="list">전원 나열식</option>
                             </select>
@@ -667,21 +756,132 @@
                 </div>
 
                 <!-- Tab 5: Presets -->
+                <!-- Tab 5: Presets (Daily Log Defaults) -->
                 <div id="tab-preset" class="settings-tab-pane">
-                    <h2>선로출입 프리셋</h2>
-                    <div class="form-group">
-                        <label>프리셋 선택</label>
-                        <select id="preset-selector" onchange="loadPresetDetail()"></select>
+                    <h2>일지 프리셋 (기본값 설정)</h2>
+
+                    <!-- 1. Safety Management (4 Sets) -->
+                    <div class="preset-section">
+                        <h3>안전관리 (업무일지 기본값)</h3>
+                        <!-- Set 1: Day Morning -->
+                        <div class="std-form-row safety-set">
+                            <label class="std-label">주간 오전</label>
+                            <div class="safety-inputs">
+                                <input type="text" id="fps-safe1-content" placeholder="내용" class="std-input">
+                                <label class="std-label">시작</label>
+                                <input type="text" id="fps-safe1-start" placeholder="   :   "
+                                    class="std-input time-input" maxlength="5" oninput="formatTime(this)">
+                                <label class="std-label">종료</label>
+                                <input type="text" id="fps-safe1-end" placeholder="   :   " class="std-input time-input"
+                                    maxlength="5" oninput="formatTime(this)">
+                            </div>
+                        </div>
+                        <!-- Set 2: Day Afternoon -->
+                        <div class="std-form-row safety-set">
+                            <label class="std-label">주간 오후</label>
+                            <div class="safety-inputs">
+                                <input type="text" id="fps-safe2-content" placeholder="내용" class="std-input">
+                                <label class="std-label">시작</label>
+                                <input type="text" id="fps-safe2-start" placeholder="   :   "
+                                    class="std-input time-input" maxlength="5" oninput="formatTime(this)">
+                                <label class="std-label">종료</label>
+                                <input type="text" id="fps-safe2-end" placeholder="   :   " class="std-input time-input"
+                                    maxlength="5" oninput="formatTime(this)">
+                            </div>
+                        </div>
+                        <!-- Set 3: Night Evening -->
+                        <div class="std-form-row safety-set">
+                            <label class="std-label">야간 저녁</label>
+                            <div class="safety-inputs">
+                                <input type="text" id="fps-safe3-content" placeholder="내용" class="std-input">
+                                <label class="std-label">시작</label>
+                                <input type="text" id="fps-safe3-start" placeholder="   :   "
+                                    class="std-input time-input" maxlength="5" oninput="formatTime(this)">
+                                <label class="std-label">종료</label>
+                                <input type="text" id="fps-safe3-end" placeholder="   :   " class="std-input time-input"
+                                    maxlength="5" oninput="formatTime(this)">
+                            </div>
+                        </div>
+                        <!-- Set 4: Night Dawn -->
+                        <div class="std-form-row safety-set">
+                            <label class="std-label">야간 새벽</label>
+                            <div class="safety-inputs">
+                                <input type="text" id="fps-safe4-content" placeholder="내용" class="std-input">
+                                <label class="std-label">시작</label>
+                                <input type="text" id="fps-safe4-start" placeholder="   :   "
+                                    class="std-input time-input" maxlength="5" oninput="formatTime(this)">
+                                <label class="std-label">종료</label>
+                                <input type="text" id="fps-safe4-end" placeholder="   :   " class="std-input time-input"
+                                    maxlength="5" oninput="formatTime(this)">
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>프리셋 이름</label>
-                        <input type="text" id="ps-name">
+
+                    <!-- 2. Driver Fitness Check -->
+                    <div class="preset-section">
+                        <h3>운전적합성 검사자</h3>
+                        <div class="toggle-row">
+                            <span id="lbl-driver-check-1">운전원 제외한 최선임자</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="fps-driver-check-toggle">
+                                <span class="slider round"></span>
+                            </label>
+                            <span id="lbl-driver-check-2">운전원 상호 검사</span>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label>작업 내용</label>
-                        <textarea id="ps-work" rows="5"></textarea>
+
+                    <!-- 3. General Work (Table) -->
+                    <div class="preset-section">
+                        <h3>일반업무 (기본값)</h3>
+                        <div class="table-wrapper">
+                            <table id="general-work-table">
+                                <thead>
+                                    <tr>
+                                        <th width="12%">근무</th>
+                                        <th width="17%">분류</th>
+                                        <th width="32.5%">내용</th>
+                                        <th width="11%">책임자</th>
+                                        <th width="10%">시작</th>
+                                        <th width="10%">종료</th>
+                                        <th width="7.5%">삭제</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        <button class="add-row-btn" onclick="addGeneralWorkRow()">+ 추가</button>
                     </div>
-                    <div class="actions center"><button class="primary-btn" onclick="saveSettings()">저장</button></div>
+
+                    <!-- Safety Education Before Work -->
+                    <div class="preset-section">
+                        <h3>작업 전 안전교육</h3>
+                        <div class="std-form-row" style="gap: 10px;">
+                            <label class="std-label" style="flex:0 0 auto; width:auto;">요일</label>
+                            <select id="fps-safe-edu-day" class="std-input" style="flex:0 0 100px;">
+                                <option value="Mon">월요일</option>
+                                <option value="Tue">화요일</option>
+                                <option value="Wed">수요일</option>
+                                <option value="Thu">목요일</option>
+                                <option value="Fri">금요일</option>
+                                <option value="Sat">토요일</option>
+                                <option value="Sun">일요일</option>
+                            </select>
+                            <input type="text" id="fps-safe-edu-content" class="std-input" placeholder="안전교육 내용 입력"
+                                style="flex:1;">
+                        </div>
+                    </div>
+
+                    <!-- 4. Auto Input Reservation -->
+                    <div class="preset-section">
+                        <h3>열차순회 자동입력 예약</h3>
+                        <div class="auto-input-row">
+                            <label>입력예약시간</label>
+                            <input type="text" id="fps-auto-input-time" placeholder="   :   " class="time-input"
+                                maxlength="5" oninput="formatTime(this)">
+                            <button class="secondary-btn small" onclick="saveAutoInputSettings()">자동입력 설정하기</button>
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- Tab 6: Update History -->

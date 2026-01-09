@@ -1,0 +1,384 @@
+; RunTrackAccess - 선로출입관리 자동 입력 매크로
+; data: Frontend에서 전달받은 JSON 객체
+RunTrackAccess(data) {
+    if !data
+        return
+
+    ; --- 1. 브라우저/로그인 확인 ---
+
+    ; 현재 브라우저 확인
+    nowBrowser := GetBrowserExe()
+
+    ; 로그인 및 페이지 진입 루틴
+    ; 기존 로직: browserExist() -> nowBrowser 반환 (실행 파일명)
+    ; 여기서는 항상 브라우저를 띄우거나 이미 떠있는지 확인 후 진행
+
+    if (nowBrowser != "") {
+        ; SSO 페이지 호출 (기존 로직 참조)
+        Run nowBrowser " https://mis.humetro.busan.kr/FS/xui/install/x_installChromeSSO.jsp?gv_selSystGubn=LA&gv_userBrowser=Edg"
+
+        if WinWait("개별업무통합관리", , 15) {
+            ; 이미 켜져있는 경우, 특정 픽셀(파란색 배경 등)을 확인하여 로그인 화면이면 재로그인 시도 루틴
+            ; (픽셀 체크 로직은 해상도/배율에 따라 불안정할 수 있으므로, 타이틀 위주로 체크 권장)
+
+            while !WinExist("개별업무통합관리 - 선로출입현황 조회") {
+                ; 로그인 화면인지 확인 (기존 로직: 450,470 좌표 색상 체크)
+                ; 여기서는 타이틀이 '개별업무통합관리'인데 '선로출입현황 조회'가 아니면
+                ; 로그인이 안되었거나 다른 메뉴라고 판단.
+
+                if (PixelGetColor(450, 470) == 0x0063B5) {
+                    targetID := WinExist("A")
+                    WinClose("ahk_id " targetId)
+                    login_start(nowBrowser)
+                    break
+                }
+
+                ; 무한 루프 방지
+                if (A_Index > 5)
+                    break
+                Sleep 500
+            }
+        } else {
+            ; 창이 안 뜨면 로그인 시도
+            login_start(nowBrowser)
+        }
+    } else {
+        MsgBox("브라우저 설정이 올바르지 않습니다.")
+        return
+    }
+
+    if !WinWait("개별업무통합관리 - 선로출입현황 조회", , 30) {
+        MsgBox "timeout - 선로출입현황 조회 화면이 뜨지 않습니다."
+        return
+    }
+
+    Sleep 100
+    click 110, 250   ; 선로출입 등록/신청 메뉴 클릭 (좌측 트리)
+    if !WinWait("개별업무통합관리 - 선로출입 등록/신청", , 5) {
+        MsgBox "timeout - 등록화면 진입 실패"
+        return
+    }
+    Sleep 250
+
+    originalId := WinExist("개별업무통합관리")
+    WinActivate("개별업무통합관리")
+    WinMaximize(originalId)
+
+    ; --- 2. 입력 로직 실행 ---
+
+    ; "외 N명" 문자열 생성
+    othersStr := ""
+    if (data.Has("totalCount") && data["totalCount"] != "") {
+        deduct := 1 ; 기본 1명 (본인/대표)
+        if (data["driverName"] != "")
+            deduct++
+        if (data["workerName"] != "")
+            deduct++
+        if (data["safetyName"] != "")
+            deduct++
+
+        othersCount := Integer(data["totalCount"]) - deduct
+        if (othersCount > 0)
+            othersStr := " 외 " othersCount "명"
+    }
+
+    Sleep 100
+
+    ; (1) 행추가 (Tab 16번 -> Enter)
+    Send "{tab 16}{enter}"
+    Sleep 250
+
+    ; (2) 작업구분
+    Send "{tab 13}"
+    Sleep 100
+    MsgBox data["workType"]
+    try {
+        loopCount := Integer(data["workType"])
+        if (loopCount > 0)
+            SendSleep("{down " loopCount "}", 250)
+    } catch as e{
+        MsgBox("작업구분 데이터 오류", "선로출입관리", "icon!")
+        return
+    }
+
+    ; (3) 작업일자
+    SendSleep("{tab}", 250)
+    if (A_Hour < 17)
+        SendSleep(FormatTime(, "yyyyMMdd"), 100)
+
+    ; (4) 작업내역
+    SendSleep("{tab}", 250)
+    SendSleep(data["content"], 500)
+
+    ; (5) 운행시작
+    SendSleep("{tab}", 250)
+    if (data["opStart"] != "")
+        SendSleep(data["opStart"], 250)
+    else
+        SendSleep("^a{delete}", 250)
+
+    ; (6) 작업시작
+    SendSleep("{tab}", 250)
+    SendSleep(data["workStart"], 250)
+
+    ; (7) 운행종료
+    SendSleep("{tab}", 250)
+    if (data["opEnd"] != "")
+        SendSleep(data["opEnd"], 250)
+    else
+        SendSleep("^a{delete}", 250)
+
+    ; (8) 작업종료
+    SendSleep("{tab}", 250)
+    SendSleep(data["workEnd"], 250)
+
+    ; (9) 요청사항
+    SendSleep("{tab}", 100)
+
+    ; (10) 호선
+    SendSleep("{tab}", 100)
+    try
+        loop Integer(data["line"])
+            SendSleep("{down}", 250)
+    catch {
+        MsgBox("호선 데이터 오류")
+        return
+    }
+
+    ; (11) 선로구분
+    SendSleep("{tab}", 100)
+    try
+        loop Integer(data["trackType"])
+            SendSleep("{down}", 100)
+    catch {
+        MsgBox("선로구분 데이터 오류")
+        return
+    }
+
+    ; (12) 선로차단여부
+    SendSleep("{tab}", 100)
+    Send "{down}"
+
+    ; (13) 운행from
+    SendSleep("{tab}", 100)
+    if (data["workFrom"] != "")
+        Send data["workFrom"] "{enter}"
+
+    ; (14) 작업from
+    SendSleep("{tab}", 100)
+    if (data["workFrom"] != "")
+        Send data["workFrom"] "{enter}"
+
+    ; (15) 경유(통과)
+    SendSleep("{tab 2}", 100)
+
+    ; (16) 작업to
+    SendSleep("{tab}", 100)
+    if (data["workTo"] != "")
+        SendSleep(data["workTo"] "{enter}", 100)
+
+    if data["workType"] == 3 or data["workType"] == 6 { ;모터카 출고시
+        SendSleep("{tab 3}", 100)
+        ;if data["bunso"] == "호포전기분소"
+           SendSleep("{down}", 100)
+
+        ;철도장비사용수량
+        SendSleep("{tab}",100)
+        Send "1"
+    }
+    else
+        SendSleep("{tab 2}",100)
+
+    ; (18) 운전원
+    SendSleep("{tab}", 100)
+    if (data["driverName"] != "")
+        Send data["driverName"] "{tab}" data["driverPhone"]
+    else
+        SendSleep("{tab}", 100)
+
+    ; (19) 작업자
+    SendSleep("{tab}", 100)
+    if (data["workerName"] != "")
+        Send data["workerName"] othersStr "{tab}" data["workerPhone"]
+    else
+        SendSleep("{tab}", 100)
+
+    ; (20) 총원
+    SendSleep("{tab}", 100)
+    Send data["totalCount"]
+
+    ; (21) 감독자
+    SendSleep("{tab 3}{enter}", 100)
+    if !WinWait("직원조회", , 3) {
+        MsgBox "감독자 검색 창 Timeout"
+        return
+    }
+    Sleep 500
+    if (data["supervisorId"] != "") {
+        Send "+{tab}" data["supervisorId"] "{enter}"
+        Sleep 750
+        SendEvent "+{tab 2}"
+        Sleep 100
+        SendSleep("{enter}", 250)
+    }
+    WinWaitActive("감독자 입력", , 2)
+    if WinActive("감독자 입력") {
+        Sleep 100
+        SendSleep("{enter}", 100)
+        WinWaitClose("감독자 입력", , 3)
+    }
+
+    ; (22) 철도운행안전관리자
+    SendSleep("{tab 2}", 100)
+    if data["workType"] == 3 or data["workType"] == 6 ;모터카 출고시
+        SendSleep("{tab 2}", 100)
+
+    if (data["safetyName"] != "")
+        Send data["safetyName"] "{tab}" data["safetyPhone"]
+    else
+        Send "{tab}"
+
+    ; (23) 철도운행협의서
+    SendSleep("{tab 5}", 100)
+    if data["workType"] == 3 or data["workType"] == 6 { ;모터카 출고시
+        SendSleep("{enter}", 100)
+        WinWaitActive("철도운행안전협의")
+        Sleep 100
+        SendSleep("{tab 3}", 100)
+        SendSleep("{down}", 100)
+        SendSleep("{tab}", 100)
+        SendSleep("{enter}", 100)
+        WinWaitClose("철도운행안전협의", , 3)
+    }
+
+    ; (24) 운행to
+    SendSleep("{tab 12}", 100)
+    if (data["opEnd"] != "" && data["workTo"] != "")
+        Send data["workTo"] "{enter}"
+
+    ; (25) 저장
+    SendSleep("{tab 4}", 100)
+    Send "{enter}"
+
+    ; 저장 확인 및 완료 처리
+    WinWaitNotActiveTime(originalId, 250)
+    targetId := WinExist("A")
+    Sleep 100
+    Send "{enter}"
+
+    WinWaitNotActive targetId
+
+    WinWaitNotActiveTime(originalId, 250)
+    targetId := WinExist("A")
+    Sleep 100
+    Send "{enter}"
+
+    WinWaitActiveTime(originalId, 250)
+    Sleep 100
+
+    ; (26) 출입역 입력
+    if (data["stationInput"]) {
+        Sleep 500
+        Click 300, 530
+        Sleep 250
+        Click 685, 540
+        Sleep 250
+        SendSleep("{Tab 3}" data["workFrom"], 100)
+        SendSleep("{enter}", 100)
+        SendSleep("{Tab}{delete}" data["totalCount"], 100)
+        Send "{Tab 4}{enter}"
+
+        if WinWaitNotActive(originalId, , 3)
+            Sleep 250
+        SendSleep("{enter}", 250)
+        if WinWaitNotActive(originalId, , 3)
+            Sleep 250
+        SendSleep("{enter}", 250)
+
+        SendEvent "+{tab 3}"
+        Sleep 100
+        SendSleep("{enter}", 100)
+        SendSleep("{Tab 3}" data["workTo"], 100)
+        SendSleep("{enter}", 100)
+        SendSleep("{Tab}{delete}" data["totalCount"], 100)
+        Send "{Tab 2}{enter}"
+
+        if WinWaitNotActive(originalId, , 3)
+            Sleep 2500
+        SendSleep("{enter}", 250)
+        if WinWaitNotActive(originalId, , 3)
+            Sleep 250
+        Send "{enter}"
+    }
+
+    MsgBox "입력이 완료되었습니다. 내용을 확인하세요.", "완료", "iconi"
+}
+
+; --- Helper Functions ---
+
+GetBrowserExe() {
+    ; ConfigManager에서 브라우저 설정을 가져오거나 기본값 반환
+    browser := ConfigManager.Get("appSettings.browser")
+
+    if (browser == "") {
+        ; 기본값: Edge
+        browser := "msedge.exe"
+    } else {
+        ; 'msedge.exe' 형태가 아니라면 추가 검증 필요할 수 있음
+        if !InStr(browser, ".exe")
+            browser .= ".exe"
+    }
+    return browser
+}
+
+login_start(browser) {
+    if (browser == "")
+        browser := "msedge.exe"
+
+    Run browser " https://btcep.humetro.busan.kr/user/login.face?destination=%2Fportal%2F"
+    if WinWaitActive(":: 부산교통공사", , 30) {
+        Sleep 500
+        MsgBox "로그인을 해주세요", , "T5"
+    }
+    if !WinWait(":: 부산교통공사 :: ", , 30) {
+        MsgBox "timeout - 로그인 대기 시간 초과"
+        return
+    }
+
+    Sleep 2000
+    ; SSO 설치 페이지(실제 업무 페이지 등) 호출
+    Run browser " https://mis.humetro.busan.kr/FS/xui/install/x_installChromeSSO.jsp?gv_selSystGubn=LA&gv_userBrowser=Edg"
+}
+
+SendSleep(keys, delay) {
+    Send keys
+    Sleep delay
+}
+
+WinWaitNotActiveTime(winTitle, millisecondsToWait, checkInterval := 50) {
+    startTime := A_TickCount
+    while true {
+        if WinActive(winTitle) {
+            startTime := A_TickCount
+        } else {
+            if (A_TickCount - startTime >= millisecondsToWait) {
+                break
+            }
+        }
+        Sleep(checkInterval)
+    }
+}
+
+WinWaitActiveTime(winTitle, millisecondsToWait, checkInterval := 50) {
+    startTime := A_TickCount
+    while true {
+        if WinActive(winTitle) {
+            if (A_TickCount - startTime >= millisecondsToWait) {
+                break
+            }
+        } else {
+            startTime := A_TickCount
+        }
+        Sleep(checkInterval)
+    }
+}
